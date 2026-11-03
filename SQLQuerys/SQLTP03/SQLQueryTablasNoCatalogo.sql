@@ -1,5 +1,5 @@
 USE TareaAhorros
---Estas son tablas catalogo por lo que si cuentan con IDENTITY
+--Estas no son tablas catalogo por lo que si cuentan con IDENTITY
 
 CREATE TABLE dbo.Comprobante ( --almacenar los comprobantes de la cuenta
     Id INT IDENTITY(1,1) NOT NULL
