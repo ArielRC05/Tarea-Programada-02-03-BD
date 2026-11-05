@@ -6,8 +6,6 @@ AS
 BEGIN 
 	SET NOCOUNT ON;
 
-	BEGIN TRY
-
 		INSERT dbo.EstadoCuenta(
 			IdCuenta
 			, FechaInicio
@@ -33,29 +31,6 @@ BEGIN
 		FROM inserted I --inserted es una tabla temporal logica 
 		ORDER BY I.Id;
 	
-	END TRY
-	BEGIN CATCH
-
-		INSERT dbo.DBErrors(
-			NumeroError
-			, EstadoError
-			, SeveridadError
-			, LineaDeError
-			, ProcedureError
-			, MensajeError
-		)
-		VALUES (
-			ERROR_NUMBER()
-			, ERROR_STATE()
-			, ERROR_SEVERITY()
-			, ERROR_LINE()
-			, ERROR_PROCEDURE()
-			, ERROR_MESSAGE()
-		);
-
-		THROW;
-	END CATCH;
-
 	SET NOCOUNT OFF;
 END;
 
