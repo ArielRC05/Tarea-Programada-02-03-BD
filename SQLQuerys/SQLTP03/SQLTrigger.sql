@@ -28,7 +28,7 @@ BEGIN
             , 0
             , 0
             , 0
-		FROM inserted I --inserted es una tabla temporal logica 
+		FROM inserted I --inserted es una tabla logica con las filas insertadas
 		ORDER BY I.Id;
 	
 	SET NOCOUNT OFF;
