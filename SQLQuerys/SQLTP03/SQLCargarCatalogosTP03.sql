@@ -1,18 +1,12 @@
 USE TareaAhorros;
 GO
 
---Ejemplo de ejecucion:
---DECLARE @resultCode INT;
---EXEC dbo.CargarCatalogos
---     @inXml = @xml
---     , @outResultCode = @resultCode OUTPUT;
-
-ALTER PROCEDURE dbo.CargarCatalogos
-    @inXml XML --parametro de entrada de tipo XML
-    , @outResultCode INT OUTPUT --codigo del resultado
+CREATE OR ALTER PROCEDURE dbo.CargarCatalogos
+    @inXml XML
+    , @outResultCode INT OUTPUT
 AS
 BEGIN
-    SET NOCOUNT ON; --evita mensajes de rows affected
+    SET NOCOUNT ON;
 
     BEGIN TRY
         SET @outResultCode = 0;
@@ -25,7 +19,7 @@ BEGIN
         )
         SELECT tipo.Item.value('@Id', 'INT')
             , tipo.Item.value('@Nombre', 'VARCHAR(64)')
-        FROM @inXml.nodes('//TipoDocuIdentidad') AS tipo(Item) --.nodes() convierte cada elemento del XML en una fila
+        FROM @inXml.nodes('//TipoDocuIdentidad') AS tipo(Item)
         WHERE NOT EXISTS (
             SELECT 1
             FROM dbo.TipoDocuIdentidad docu
@@ -121,9 +115,9 @@ BEGIN
             , tipo.Item.value('@Nombre', 'VARCHAR(64)')
             , CASE WHEN (tipo.Item.value('@Accion', 'VARCHAR(16)') = 'Credito') THEN 1 ELSE 0 END
             , tipo.Item.value('@flagGeneraComprobante', 'BIT')
-            , CASE WHEN (tipo.Item.value('@Id', 'INT') IN (2, 4)) THEN 1 ELSE 0 END --alambrado: Deposito ATM y Retiro ATM
-            , CASE WHEN (tipo.Item.value('@Id', 'INT') IN (1, 5)) THEN 1 ELSE 0 END --alambrado: Deposito y Retiro Ventana
-            , CASE WHEN (tipo.Item.value('@Id', 'INT') IN (8, 9)) THEN 1 ELSE 0 END --alambrado: Deposito y Retiro Sinpe
+            , CASE WHEN (tipo.Item.value('@Id', 'INT') IN (2, 4)) THEN 1 ELSE 0 END
+            , CASE WHEN (tipo.Item.value('@Id', 'INT') IN (1, 5)) THEN 1 ELSE 0 END
+            , CASE WHEN (tipo.Item.value('@Id', 'INT') IN (8, 9)) THEN 1 ELSE 0 END
         FROM @inXml.nodes('//TipoMovimiento') AS tipo(Item)
         WHERE NOT EXISTS (
             SELECT 1
@@ -131,12 +125,12 @@ BEGIN
             WHERE movimiento.Id = tipo.Item.value('@Id', 'INT')
         );
 
-        COMMIT TRANSACTION; --guardar cambios
+        COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
         IF (@@TRANCOUNT > 0)
         BEGIN
-            ROLLBACK TRANSACTION; --revertir cambios
+            ROLLBACK TRANSACTION;
         END;
 
         INSERT dbo.DBErrors (
@@ -154,7 +148,7 @@ BEGIN
             , ERROR_PROCEDURE()
             , ERROR_MESSAGE();
 
-        SET @outResultCode = 50001; --50001 es error de plataforma
+        SET @outResultCode = 50005;
     END CATCH;
 END;
 GO
