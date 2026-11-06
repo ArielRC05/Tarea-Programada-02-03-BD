@@ -13,17 +13,11 @@ BEGIN
 
         SELECT
             ec.Id
-            , ec.IdCuenta
             , ec.FechaInicio
             , ec.FechaFin
             , ec.SaldoInicial
             , ec.SaldoFinal
             , ec.SaldoMinimo
-            , ec.CantOperacionesATM
-            , ec.CantOperacionesCajeroHumano
-            , (ec.CantTransferenciasEntrantes + ec.CantTransferenciasSalientes) AS CantOperacionesSinpe
-            , ec.CantTransferenciasEntrantes
-            , ec.CantTransferenciasSalientes
         FROM dbo.EstadoCuenta ec
         WHERE ec.IdCuenta = @inIdCuenta
         ORDER BY ec.FechaFin DESC, ec.Id DESC;
