@@ -37,7 +37,7 @@ BEGIN
         SELECT
             @fechaInicio = MIN(F.Item.value('@Fecha', 'DATE'))
             , @fechaFin = MAX(F.Item.value('@Fecha', 'DATE'))
-        FROM @inXml.nodes('//FechaOperacion | //Fecha_Operacion') AS F(Item);
+        FROM @inXml.nodes('//FechaOperacion') AS F(Item);
 
         -- Verificar en EventLog si la información preprocesada quedó sucia/incompleta (50202)
         IF EXISTS (
@@ -71,7 +71,7 @@ BEGIN
             SET @xmlDia = NULL;
 
             SELECT @xmlDia = F.Item.query('.')
-            FROM @inXml.nodes('//FechaOperacion[@Fecha = sql:variable("@fechaActual")] | //Fecha_Operacion[@Fecha = sql:variable("@fechaActual")]') AS F(Item);
+            FROM @inXml.nodes('//FechaOperacion[@Fecha = sql:variable("@fechaActual")]') AS F(Item);
 
             -- 1. Si hay nodo XML para esta fecha, cargar entidades y movimientos
             IF (@xmlDia IS NOT NULL AND CONVERT(NVARCHAR(MAX), @xmlDia) <> '')
