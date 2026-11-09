@@ -18,11 +18,24 @@ BEGIN
         SET @outResultCode = 0;
 
         SELECT
-            m.Fecha
+            m.Id
+            , m.Fecha
             , m.Monto
+            , tm.Simbolo AS SimboloMoneda
+            , tmov.Nombre AS TipoMovimiento
             , m.Descripcion
             , m.NuevoSaldo
         FROM dbo.Movimiento AS m
+        INNER JOIN dbo.TipoMovimiento AS tmov
+            ON (tmov.Id = m.IdTipoMovimiento)
+        INNER JOIN dbo.EstadoCuenta AS ec
+            ON (ec.Id = m.IdEstadoCuenta)
+        INNER JOIN dbo.Cuenta AS c
+            ON (c.Id = ec.IdCuenta)
+        INNER JOIN dbo.TipoCuentaAhorro AS tca
+            ON (tca.Id = c.IdTipoCuentaAhorro)
+        INNER JOIN dbo.TipoMoneda AS tm
+            ON (tm.Id = tca.IdTipoMoneda)
         WHERE (m.IdEstadoCuenta = @inIdEstadoCuenta)
         ORDER BY
             m.Fecha ASC

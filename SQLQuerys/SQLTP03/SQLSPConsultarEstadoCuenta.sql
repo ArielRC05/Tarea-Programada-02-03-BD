@@ -18,14 +18,25 @@ BEGIN
         SET @outResultCode = 0;
 
         SELECT
-            ec.FechaFin AS Fecha
+            ec.Id
+            , ec.IdCuenta
+            , ec.FechaInicio
+            , ec.FechaFin
+            , ec.FechaFin AS Fecha
             , ec.SaldoMinimo
             , ec.SaldoInicial
             , ec.SaldoFinal
             , ec.CantOperacionesATM
             , ec.CantOperacionesCajeroHumano
             , (ec.CantTransferenciasEntrantes + ec.CantTransferenciasSalientes) AS CantOperacionesSinpe
+            , tm.Simbolo AS SimboloMoneda
         FROM dbo.EstadoCuenta AS ec
+        INNER JOIN dbo.Cuenta AS c
+            ON (c.Id = ec.IdCuenta)
+        INNER JOIN dbo.TipoCuentaAhorro AS tca
+            ON (tca.Id = c.IdTipoCuentaAhorro)
+        INNER JOIN dbo.TipoMoneda AS tm
+            ON (tm.Id = tca.IdTipoMoneda)
         WHERE (ec.Id = @inIdEstadoCuenta);
     END TRY
     BEGIN CATCH

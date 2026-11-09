@@ -28,7 +28,6 @@ BEGIN
     DECLARE @monto DECIMAL(18,2);
     DECLARE @descripcion VARCHAR(256);
 
-    -- Tabla variable para iterar movimientos sin usar tablas temporales (#) ni cursores
     DECLARE @MovimientosDelDia TABLE (
         Secuencia INT IDENTITY(1,1) PRIMARY KEY
         , NumeroCuenta VARCHAR(32)
@@ -40,13 +39,13 @@ BEGIN
     BEGIN TRY
         SET @outResultCode = 0;
 
-        -- 1. Pre-proceso y validaciones de control masivo antes de iterar
+        -- 1. Obtener primera y ultima fecha del XML
         SELECT
             @fechaInicio = MIN(F.Item.value('@Fecha', 'DATE'))
             , @fechaFin = MAX(F.Item.value('@Fecha', 'DATE'))
         FROM @inXml.nodes('//FechaOperacion') AS F(Item);
 
-        -- Error 50202: la información preprocesada se ensució
+        -- Error 50202: la informacion preprocesada se ensucio
         IF EXISTS (
             SELECT 1
             FROM dbo.EventLog AS el
@@ -70,7 +69,7 @@ BEGIN
             RETURN;
         END;
 
-        -- Error 50201: el proceso ya corrió para esa fecha
+        -- Error 50201: el proceso ya corrio para esa fecha
         IF EXISTS (
             SELECT 1
             FROM dbo.EventLog AS el
@@ -146,7 +145,7 @@ BEGIN
                         , @inDescripcion = @descripcion
                         , @outResultCode = @codigoSP OUTPUT;
 
-                    IF (@codigoSP IN (50005, 50201, 50202, 50301))
+                    IF (@codigoSP IN (50005, 50014, 50201, 50202, 50301))
                     BEGIN
                         SET @outResultCode = @codigoSP;
                         RETURN;

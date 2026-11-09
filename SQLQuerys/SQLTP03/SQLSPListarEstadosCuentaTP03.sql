@@ -19,6 +19,8 @@ BEGIN
 
         SELECT
             ec.Id
+            , ec.Id AS IdEstadoCuenta
+            , ec.IdCuenta
             , ec.FechaInicio
             , ec.FechaFin
             , ec.SaldoInicial
@@ -26,6 +28,9 @@ BEGIN
             , ec.SaldoMinimo
             , ec.CantOperacionesATM
             , ec.CantOperacionesCajeroHumano
+            , (ec.CantTransferenciasEntrantes + ec.CantTransferenciasSalientes) AS CantOperacionesSinpe
+            , ec.CantTransferenciasEntrantes
+            , ec.CantTransferenciasSalientes
         FROM dbo.EstadoCuenta AS ec
         WHERE (ec.IdCuenta = @inIdCuenta)
         ORDER BY
