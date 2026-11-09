@@ -4,7 +4,7 @@ GO
 -- Ejemplo de ejecucion:
 -- DECLARE @outCode INT;
 -- EXEC dbo.CargarEntidadesDelDia
---     @inFechaOperacion = '2020-03-01'
+--     @inFechaOperacion = '2026-03-01'
 --     , @inXmlDia = @xmlDia
 --     , @outResultCode = @outCode OUTPUT;
 
@@ -16,16 +16,13 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+    DECLARE @flagEnTransaccion BIT = 0;
+
     BEGIN TRY
         SET @outResultCode = 0;
 
-        -- Control de flujo previo a la transaccion
-        IF (@inXmlDia IS NULL)
-        BEGIN
-            RETURN;
-        END;
-
         BEGIN TRANSACTION;
+        SET @flagEnTransaccion = 1;
 
         -- 1. Insertar Personas del dia
         INSERT dbo.Persona (
@@ -85,22 +82,25 @@ BEGIN
                     AND (t.Numero = per.Item.value('@telefono2', 'VARCHAR(32)'))
             );
 
-        -- 3. Registrar CAhorrista para dueños de cuentas
+        -- 3. Registrar CAhorrista para duenos de cuentas
         INSERT dbo.CAhorrista (
             Id
         )
-        SELECT DISTINCT
+        SELECT
             p.Id
-        FROM @inXmlDia.nodes('//Cuenta') AS cta(Item)
-        INNER JOIN dbo.Persona AS p
-            ON (p.ValorDocumentoIdentidad = cta.Item.value('@ValorDocumentoIdentidadDelCliente', 'VARCHAR(32)'))
-        WHERE NOT EXISTS (
-            SELECT 1
-            FROM dbo.CAhorrista AS ca
-            WHERE (ca.Id = p.Id)
-        );
+        FROM dbo.Persona AS p
+        WHERE EXISTS (
+                SELECT 1
+                FROM @inXmlDia.nodes('//Cuenta') AS cta(Item)
+                WHERE (cta.Item.value('@ValorDocumentoIdentidadDelCliente', 'VARCHAR(32)') = p.ValorDocumentoIdentidad)
+            )
+            AND NOT EXISTS (
+                SELECT 1
+                FROM dbo.CAhorrista AS ca
+                WHERE (ca.Id = p.Id)
+            );
 
-        -- 4. Insertar Cuentas (saldo inicial en 0.00 para disparar el trigger de Kendall)
+        -- 4. Insertar Cuentas (saldo inicial en 0.00, el trigger abre el primer estado de cuenta)
         INSERT dbo.Cuenta (
             IdCAhorrista
             , IdTipoCuentaAhorro
@@ -127,16 +127,19 @@ BEGIN
         INSERT dbo.Beneficiario (
             Id
         )
-        SELECT DISTINCT
+        SELECT
             p.Id
-        FROM @inXmlDia.nodes('//Beneficiario') AS ben(Item)
-        INNER JOIN dbo.Persona AS p
-            ON (p.ValorDocumentoIdentidad = ben.Item.value('@ValorDocumentoIdentidadBeneficiario', 'VARCHAR(32)'))
-        WHERE NOT EXISTS (
-            SELECT 1
-            FROM dbo.Beneficiario AS b
-            WHERE (b.Id = p.Id)
-        );
+        FROM dbo.Persona AS p
+        WHERE EXISTS (
+                SELECT 1
+                FROM @inXmlDia.nodes('//Beneficiario') AS ben(Item)
+                WHERE (ben.Item.value('@ValorDocumentoIdentidadBeneficiario', 'VARCHAR(32)') = p.ValorDocumentoIdentidad)
+            )
+            AND NOT EXISTS (
+                SELECT 1
+                FROM dbo.Beneficiario AS b
+                WHERE (b.Id = p.Id)
+            );
 
         -- 6. Insertar relacion BenefDeCA
         INSERT dbo.BenefDeCA (
@@ -167,10 +170,52 @@ BEGIN
                 AND (bca.flagActivo = 1)
         );
 
+        -- 7. Insertar Usuarios (se vinculan a su Persona por ValorDocId)
+        INSERT dbo.Usuario (
+            IdPersona
+            , NombreUsuario
+            , Contrasena
+            , flagEsAdministrador
+        )
+        SELECT
+            p.Id
+            , usu.Item.value('@User', 'VARCHAR(64)')
+            , usu.Item.value('@Pass', 'VARCHAR(64)')
+            , usu.Item.value('@EsAdministrador', 'BIT')
+        FROM @inXmlDia.nodes('//Usuario') AS usu(Item)
+        INNER JOIN dbo.Persona AS p
+            ON (p.ValorDocumentoIdentidad = usu.Item.value('@ValorDocId', 'VARCHAR(32)'))
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM dbo.Usuario AS u
+            WHERE (u.NombreUsuario = usu.Item.value('@User', 'VARCHAR(64)'))
+        );
+
+        -- 8. Insertar UsuarioPuedeVer (usuario y cuenta ya existen en este punto)
+        INSERT dbo.UsuarioPuedeVer (
+            IdUsuario
+            , IdCuenta
+        )
+        SELECT
+            u.Id
+            , c.Id
+        FROM @inXmlDia.nodes('//UsuarioPuedeVer') AS pv(Item)
+        INNER JOIN dbo.Usuario AS u
+            ON (u.NombreUsuario = pv.Item.value('@User', 'VARCHAR(64)'))
+        INNER JOIN dbo.Cuenta AS c
+            ON (c.NumeroCuenta = pv.Item.value('@NumeroCuenta', 'VARCHAR(32)'))
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM dbo.UsuarioPuedeVer AS upv
+            WHERE (upv.IdUsuario = u.Id)
+                AND (upv.IdCuenta = c.Id)
+        );
+
         COMMIT TRANSACTION;
+        SET @flagEnTransaccion = 0;
     END TRY
     BEGIN CATCH
-        IF (@@TRANCOUNT > 0)
+        IF (@flagEnTransaccion = 1)
         BEGIN
             ROLLBACK TRANSACTION;
         END;

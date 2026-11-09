@@ -24,6 +24,8 @@ BEGIN
             , ec.SaldoInicial
             , ec.SaldoFinal
             , ec.SaldoMinimo
+            , ec.CantOperacionesATM
+            , ec.CantOperacionesCajeroHumano
         FROM dbo.EstadoCuenta AS ec
         WHERE (ec.IdCuenta = @inIdCuenta)
         ORDER BY

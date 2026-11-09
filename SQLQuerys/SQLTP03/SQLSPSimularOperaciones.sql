@@ -44,7 +44,7 @@ BEGIN
         SELECT
             @fechaInicio = MIN(F.Item.value('@Fecha', 'DATE'))
             , @fechaFin = MAX(F.Item.value('@Fecha', 'DATE'))
-        FROM @inXml.nodes('//FechaOperacion | //Fecha_Operacion') AS F(Item);
+        FROM @inXml.nodes('//FechaOperacion') AS F(Item);
 
         -- Error 50202: la información preprocesada se ensució
         IF EXISTS (
@@ -92,7 +92,7 @@ BEGIN
 
             SELECT
                 @xmlDia = F.Item.query('.')
-            FROM @inXml.nodes('//FechaOperacion[@Fecha = sql:variable("@fechaActual")] | //Fecha_Operacion[@Fecha = sql:variable("@fechaActual")]') AS F(Item);
+            FROM @inXml.nodes('//FechaOperacion[@Fecha = sql:variable("@fechaActual")]') AS F(Item);
 
             -- Paso A: Cargar entidades y aplicar movimientos si el dia existe en el XML
             IF (@xmlDia IS NOT NULL AND CONVERT(NVARCHAR(MAX), @xmlDia) <> '')
@@ -171,10 +171,6 @@ BEGIN
         END;
     END TRY
     BEGIN CATCH
-        IF (@@TRANCOUNT > 0)
-        BEGIN
-            ROLLBACK TRANSACTION;
-        END;
 
         INSERT dbo.DBErrors (
             NumeroError

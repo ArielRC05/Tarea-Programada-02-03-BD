@@ -11,7 +11,7 @@ GO
 --    , @outResultCode = @r OUTPUT;
 --SELECT @r AS outResultCode;
 
-CREATE PROCEDURE dbo.AplicarMovimiento
+CREATE OR ALTER PROCEDURE dbo.AplicarMovimiento
     @inFechaOperacion DATE
     , @inNumeroCuenta VARCHAR(32)
     , @inNombreTipoMovimiento VARCHAR(64)
@@ -201,7 +201,8 @@ BEGIN
             UPDATE dbo.EstadoCuenta
             SET SaldoFinal = @SaldoFinal
                 , SaldoMinimo = CASE
-                                    WHEN (@SaldoFinal < SaldoMinimo) THEN @SaldoFinal
+                                    WHEN (@SaldoFinal < SaldoMinimo) THEN @NuevoSaldo
+                                    WHEN (@NuevoSaldo < SaldoMinimo) THEN @NuevoSaldo
                                     ELSE SaldoMinimo
                                 END
                 , CantOperacionesATM = CantOperacionesATM + @flagEsATM

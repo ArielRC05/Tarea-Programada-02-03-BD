@@ -14,11 +14,14 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+    DECLARE @flagEnTransaccion BIT = 0;
+
     BEGIN TRY
         SET @outResultCode = 0;
 
         BEGIN TRANSACTION;
-
+        
+        SET @flagEnTransaccion = 1;
         -- 1. Tipo Documento Identidad
         INSERT dbo.TipoDocuIdentidad (
             Id
@@ -144,9 +147,10 @@ BEGIN
         );
 
         COMMIT TRANSACTION;
+        SET @flagEnTransaccion = 0;
     END TRY
     BEGIN CATCH
-        IF (@@TRANCOUNT > 0)
+        IF (@flagEnTransaccion =1)
         BEGIN
             ROLLBACK TRANSACTION;
         END;
