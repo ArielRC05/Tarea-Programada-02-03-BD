@@ -35,8 +35,26 @@
             <button class="btn btn-secondary" onclick="cerrarSesion()">Cerrar Sesión</button>
         </div>
         <div class="card-body">
-            <p>Cuenta activa: <strong id="lbl-cuenta"></strong></p>
-            <br>
+            <div class="form-group">
+                <label>Seleccione una Cuenta de Ahorros:</label>
+                <select id="select-cuenta" class="form-control" onchange="cambiarCuentaSeleccionada()"></select>
+            </div>
+
+            <div class="summary-grid" style="margin-bottom: 20px;">
+                <div class="summary-item">
+                    <span class="summary-label">Cuenta Activa</span>
+                    <strong id="lbl-cuenta">-</strong>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Tipo de Cuenta</span>
+                    <strong id="lbl-tipo-cuenta">-</strong>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Saldo Disponible</span>
+                    <strong id="lbl-saldo-cuenta">-</strong>
+                </div>
+            </div>
+
             <div class="action-bar">
                 <button class="btn btn-primary" onclick="mostrarBeneficiarios()">Editar Beneficiarios</button>
                 <button class="btn btn-primary" onclick="cargarEstadosCuenta()">Consultar Estados de Cuenta</button>
@@ -140,28 +158,80 @@
         </div>
     </div>
 
-    <!-- VISTA 4: ESTADOS DE CUENTA -->
+    <!-- VISTA 4: LISTADO DE ESTADOS DE CUENTA -->
     <div id="vista-estados" class="card hidden">
         <div class="card-header">
-            <span>Últimos 8 Estados de Cuenta</span>
+            <span>Estados de Cuenta - Cuenta <span id="lbl-estados-cuenta"></span></span>
             <button class="btn btn-secondary" onclick="mostrarVista('vista-dashboard')">Volver</button>
         </div>
         <div class="card-body">
+            <p class="text-helper">Seleccione un estado de cuenta (ordenados del más reciente al más antiguo) para consultar su resumen y movimientos:</p>
             <table>
                 <thead>
                     <tr>
-                        <th>Fecha Emisión</th>
+                        <th>Fecha Inicio</th>
+                        <th>Fecha Fin</th>
                         <th>Saldo Inicial</th>
                         <th>Saldo Final</th>
                         <th>Saldo Mínimo</th>
-                        <th>Intereses</th>
-                        <th>Retiros</th>
-                        <th>Depósitos</th>
-                        <th>SINPE Entrantes</th>
-                        <th>SINPE Salientes</th>
+                        <th>Acción</th>
                     </tr>
                 </thead>
                 <tbody id="tabla-estados"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- VISTA 5: DETALLE DE ESTADO DE CUENTA Y MOVIMIENTOS (TP3) -->
+    <div id="vista-detalle-estado" class="card hidden">
+        <div class="card-header">
+            <span>Detalle del Estado de Cuenta</span>
+            <button class="btn btn-secondary" onclick="mostrarVista('vista-estados')">Volver a Estados de Cuenta</button>
+        </div>
+        <div class="card-body">
+            <h3 class="section-title">Datos del Estado de Cuenta</h3>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <span class="summary-label">Fecha</span>
+                    <strong id="det-fecha">-</strong>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Saldo Mínimo</span>
+                    <strong id="det-saldo-minimo">-</strong>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Saldo al Inicio</span>
+                    <strong id="det-saldo-inicial">-</strong>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Saldo al Final</span>
+                    <strong id="det-saldo-final">-</strong>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Operaciones en ATM</span>
+                    <strong id="det-op-atm">0</strong>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Operaciones Cajero Humano</span>
+                    <strong id="det-op-humano">0</strong>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Operaciones SINPE</span>
+                    <strong id="det-op-sinpe">0</strong>
+                </div>
+            </div>
+
+            <h3 class="section-title" style="margin-top: 24px;">Movimientos del Estado de Cuenta (Orden Cronológico)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha del Movimiento</th>
+                        <th>Monto</th>
+                        <th>Descripción del Movimiento</th>
+                        <th>Nuevo Saldo</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-movimientos"></tbody>
             </table>
         </div>
     </div>
@@ -171,14 +241,33 @@
 <script>
     const baseURL = 'http://localhost:3000/api';
     let usuarioActual = null;
-    let cuentaActual = null;
+    let cuentaActual = null;          // NumeroCuenta (VARCHAR)
+    let idCuentaActual = null;        // Id de Cuenta (INT)
+    let simboloMonedaActual = '₡';    // Símbolo de moneda de la cuenta activa
+    let cuentasUsuarioCache = [];
     let listaBeneficiariosCache = [];
 
-    const vistas = ['vista-login', 'vista-dashboard', 'vista-beneficiarios', 'vista-estados'];
+    const vistas = [
+        'vista-login',
+        'vista-dashboard',
+        'vista-beneficiarios',
+        'vista-estados',
+        'vista-detalle-estado'
+    ];
     
     function mostrarVista(idVista) {
         vistas.forEach(v => document.getElementById(v).classList.add('hidden'));
         document.getElementById(idVista).classList.remove('hidden');
+    }
+
+    function formatearFecha(fechaValor) {
+        if (!fechaValor) return '-';
+        return new Date(fechaValor).toISOString().split('T')[0];
+    }
+
+    function formatearMonto(monto) {
+        const num = Number(monto || 0);
+        return `${simboloMonedaActual}${num.toFixed(2)}`;
     }
 
     // --- LÓGICA DE SESIÓN ---
@@ -216,9 +305,21 @@
             const res = await fetch(`${baseURL}/cuentas/${usuarioActual}`);
             const cuentas = await res.json();
             
-            if (cuentas.length > 0) {
-                cuentaActual = cuentas[0].NumeroCuenta;
-                document.getElementById('lbl-cuenta').innerText = cuentaActual;
+            if (Array.isArray(cuentas) && cuentas.length > 0) {
+                cuentasUsuarioCache = cuentas;
+                const select = document.getElementById('select-cuenta');
+                select.innerHTML = '';
+
+                cuentas.forEach((c, index) => {
+                    const simbolo = c.SimboloMoneda || '₡';
+                    const opt = document.createElement('option');
+                    opt.value = index;
+                    opt.textContent = `${c.NumeroCuenta} - ${c.TipoCuenta || 'Cuenta'} (${simbolo}${Number(c.Saldo).toFixed(2)})`;
+                    select.appendChild(opt);
+                });
+
+                select.value = 0;
+                cambiarCuentaSeleccionada();
                 mostrarVista('vista-dashboard');
             } else {
                 alert('Este usuario oficial no tiene cuentas asociadas en la Base de Datos.');
@@ -226,6 +327,20 @@
         } catch (error) {
             console.error('Error al cargar cuentas:', error);
         }
+    }
+
+    function cambiarCuentaSeleccionada() {
+        const index = document.getElementById('select-cuenta').value;
+        const cuenta = cuentasUsuarioCache[index];
+        if (!cuenta) return;
+
+        cuentaActual = cuenta.NumeroCuenta;
+        idCuentaActual = cuenta.Id || cuenta.IdCuenta;
+        simboloMonedaActual = cuenta.SimboloMoneda || '₡';
+
+        document.getElementById('lbl-cuenta').innerText = cuenta.NumeroCuenta;
+        document.getElementById('lbl-tipo-cuenta').innerText = cuenta.TipoCuenta || '-';
+        document.getElementById('lbl-saldo-cuenta').innerText = formatearMonto(cuenta.Saldo);
     }
 
     // Cerrar sesión registrando el evento en la bitácora (TipoOperacion = 2)
@@ -244,6 +359,8 @@
 
         usuarioActual = null;
         cuentaActual = null;
+        idCuentaActual = null;
+        cuentasUsuarioCache = [];
         document.getElementById('login-user').value = '';
         document.getElementById('login-pass').value = '';
         mostrarVista('vista-login');
@@ -296,7 +413,6 @@
     }
 
     function mostrarFormularioBeneficiario(esEdicion = false) {
-        // Validación límite de beneficiarios SOLO si se está agregando uno nuevo
         if (!esEdicion && listaBeneficiariosCache.length >= 3) {
             alert("Ya alcanzó el límite máximo de 3 beneficiarios para esta cuenta. Para agregar uno nuevo, primero debe eliminar uno existente.");
             return;
@@ -321,8 +437,6 @@
 
     function abrirEdicion(idBenefDeCA) {
         const b = listaBeneficiariosCache.find(x => x.IdBenefDeCA === idBenefDeCA);
-        
-        // Le enviamos "true" para indicarle que es una edición y brinque la validación de los 3
         mostrarFormularioBeneficiario(true); 
         
         document.getElementById('benef-id').value = b.IdBenefDeCA;
@@ -341,11 +455,9 @@
         const idParentesco = document.getElementById('benef-parentesco').value;
         const porcentaje = document.getElementById('benef-porcentaje').value.trim();
 
-        // Validaciones comunes
         if (!nombre) { alert("El espacio de Nombre no puede quedar vacío."); return; }
         if (!porcentaje) { alert("El espacio de Porcentaje no puede quedar vacío."); return; }
 
-        // Validaciones adicionales exclusivas para inserción
         if (!idBenefDeCA) {
             const fecha = document.getElementById('benef-fecha').value;
             const valorDoc = document.getElementById('benef-valordoc').value.trim();
@@ -362,7 +474,6 @@
 
         try {
             if (idBenefDeCA) {
-                // PUT: Actualizar existente
                 await fetch(`${baseURL}/beneficiarios`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -376,7 +487,6 @@
                     })
                 });
             } else {
-                // POST: Insertar nuevo
                 await fetch(`${baseURL}/beneficiarios`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -422,37 +532,96 @@
         }
     }
 
-    // --- LÓGICA DE ESTADOS DE CUENTA ---
+    // --- LÓGICA DE ESTADOS DE CUENTA Y MOVIMIENTOS (TP3) ---
     async function cargarEstadosCuenta() {
+        if (!idCuentaActual) {
+            alert('No se pudo obtener el Id de la cuenta. Verifique que dbo.ListarCuentasUsuario incluya cuenta.Id en su SELECT.');
+            return;
+        }
+
+        document.getElementById('lbl-estados-cuenta').innerText = cuentaActual;
         mostrarVista('vista-estados');
         const tbody = document.getElementById('tabla-estados');
-
-        tbody.innerHTML = '<tr><td colspan="9">Cargando...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6">Cargando...</td></tr>';
         
         try {
-            const res = await fetch(`${baseURL}/estados/${usuarioActual}/${cuentaActual}`);
+            const res = await fetch(`${baseURL}/estados/${idCuentaActual}`);
             const estados = await res.json();
             tbody.innerHTML = '';
 
+            if (!Array.isArray(estados) || estados.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No hay estados de cuenta registrados para esta cuenta.</td></tr>';
+                return;
+            }
+
             estados.forEach(e => {
-                const fecha = new Date(e.FechaFin).toISOString().split('T')[0];
+                const idEstado = e.Id || e.IdEstadoCuenta;
+                const fechaIni = formatearFecha(e.FechaInicio);
+                const fechaFin = formatearFecha(e.FechaFin);
+
                 tbody.innerHTML += `
-                    <tr class="clickable">
-                        <td>${fecha}</td>
-                        <td>₡${e.SaldoInicial}</td>
-                        <td>₡${e.SaldoFinal}</td>
-                        <td>₡${e.SaldoMinimo}</td>
-                        <td>₡${e.Intereses}</td>
-                        <td>${e.CantRetiros}</td>
-                        <td>${e.CantDepositos}</td>
-                        <td>${e.CantTransferenciasEntrantes}</td>
-                        <td>${e.CantTransferenciasSalientes}</td>
+                    <tr class="clickable" onclick="consultarDetalleEstadoCuenta(${idEstado})">
+                        <td>${fechaIni}</td>
+                        <td>${fechaFin}</td>
+                        <td>${formatearMonto(e.SaldoInicial)}</td>
+                        <td>${formatearMonto(e.SaldoFinal)}</td>
+                        <td>${formatearMonto(e.SaldoMinimo)}</td>
+                        <td>
+                            <button class="btn btn-primary" onclick="event.stopPropagation(); consultarDetalleEstadoCuenta(${idEstado})">Ver Detalle</button>
+                        </td>
                     </tr>
                 `;
             });
         } catch (error) {
             console.error('Error obteniendo estados:', error);
-            tbody.innerHTML = '<tr><td colspan="9" style="color:red;">Error al cargar datos</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="color:red;">Error al cargar los estados de cuenta</td></tr>';
+        }
+    }
+
+    async function consultarDetalleEstadoCuenta(idEstadoCuenta) {
+        mostrarVista('vista-detalle-estado');
+        const tbodyMov = document.getElementById('tabla-movimientos');
+        tbodyMov.innerHTML = '<tr><td colspan="4">Cargando movimientos...</td></tr>';
+
+        try {
+            const [resEstado, resMovimientos] = await Promise.all([
+                fetch(`${baseURL}/estado-cuenta/${idEstadoCuenta}`),
+                fetch(`${baseURL}/estado-cuenta/${idEstadoCuenta}/movimientos`)
+            ]);
+
+            const infoEstado = await resEstado.json();
+            const movimientos = await resMovimientos.json();
+
+            if (resEstado.ok && infoEstado) {
+                document.getElementById('det-fecha').innerText = formatearFecha(infoEstado.Fecha);
+                document.getElementById('det-saldo-minimo').innerText = formatearMonto(infoEstado.SaldoMinimo);
+                document.getElementById('det-saldo-inicial').innerText = formatearMonto(infoEstado.SaldoInicial);
+                document.getElementById('det-saldo-final').innerText = formatearMonto(infoEstado.SaldoFinal);
+                document.getElementById('det-op-atm').innerText = infoEstado.CantOperacionesATM ?? 0;
+                document.getElementById('det-op-humano').innerText = infoEstado.CantOperacionesCajeroHumano ?? 0;
+                document.getElementById('det-op-sinpe').innerText = infoEstado.CantOperacionesSinpe ?? 0;
+            }
+
+            tbodyMov.innerHTML = '';
+
+            if (!Array.isArray(movimientos) || movimientos.length === 0) {
+                tbodyMov.innerHTML = '<tr><td colspan="4" style="text-align: center;">No hay movimientos registrados en este estado de cuenta.</td></tr>';
+                return;
+            }
+
+            movimientos.forEach(m => {
+                tbodyMov.innerHTML += `
+                    <tr>
+                        <td>${formatearFecha(m.Fecha)}</td>
+                        <td>${formatearMonto(m.Monto)}</td>
+                        <td>${m.Descripcion}</td>
+                        <td>${formatearMonto(m.NuevoSaldo)}</td>
+                    </tr>
+                `;
+            });
+        } catch (error) {
+            console.error('Error consultando detalle del estado de cuenta:', error);
+            tbodyMov.innerHTML = '<tr><td colspan="4" style="color:red;">Error al cargar el detalle del estado de cuenta</td></tr>';
         }
     }
 </script>
