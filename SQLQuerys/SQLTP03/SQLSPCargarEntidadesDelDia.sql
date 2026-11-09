@@ -16,10 +16,21 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+    DECLARE @CuentasNuevas TABLE (
+        Secuencia INT IDENTITY(1,1) PRIMARY KEY
+        , IdCAhorrista INT
+        , IdTipoCuentaAhorro INT
+        , NumeroCuenta VARCHAR(32)
+        , FechaCreacion DATE
+        , Saldo DECIMAL(18,2)
+    );
+
+    DECLARE @idx INT;
+    DECLARE @maxIdx INT;
+
     BEGIN TRY
         SET @outResultCode = 0;
 
-        -- Control de flujo previo a la transaccion
         IF (@inXmlDia IS NULL)
         BEGIN
             RETURN;
@@ -27,7 +38,7 @@ BEGIN
 
         BEGIN TRANSACTION;
 
-        -- 1. Insertar Personas del dia
+        -- 1. Insertar Personas nuevas del dia
         INSERT dbo.Persona (
             IdTipoDocuIdentidad
             , ValorDocumentoIdentidad
@@ -48,7 +59,7 @@ BEGIN
             WHERE (p.ValorDocumentoIdentidad = per.Item.value('@ValorDocumentoIdentidad', 'VARCHAR(32)'))
         );
 
-        -- 2. Insertar Telefonos (telefono1 y telefono2)
+        -- 2. Insertar Telefono 1 y Telefono 2 de las personas
         INSERT dbo.Telefono (
             IdPersona
             , Numero
@@ -85,7 +96,7 @@ BEGIN
                     AND (t.Numero = per.Item.value('@telefono2', 'VARCHAR(32)'))
             );
 
-        -- 3. Registrar CAhorrista para duenos de cuentas
+        -- 3. Registrar en CAhorrista a los duenos de cuentas nuevas
         INSERT dbo.CAhorrista (
             Id
         )
@@ -100,24 +111,20 @@ BEGIN
             WHERE (ca.Id = p.Id)
         );
 
-        -- 4. Insertar Cuentas (saldo inicial en 0.00 para disparar el trigger del primer EstadoCuenta)
-        INSERT dbo.Cuenta (
+        -- 4. Preparar e insertar Cuentas del dia (dispara el Trigger de apertura de EstadoCuenta)
+        INSERT INTO @CuentasNuevas (
             IdCAhorrista
             , IdTipoCuentaAhorro
             , NumeroCuenta
             , FechaCreacion
             , Saldo
-            , AcumuladosSinpe
-            , FechaAcumuladosSinpe
         )
         SELECT
             p.Id
             , cta.Item.value('@TipoCuentaId', 'INT')
             , cta.Item.value('@NumeroCuenta', 'VARCHAR(32)')
-            , @inFechaOperacion
-            , 0.00
-            , 0.00
-            , NULL
+            , ISNULL(@inFechaOperacion, ISNULL(cta.Item.value('@FechaCreacion', 'DATE'), CONVERT(DATE, GETDATE())))
+            , ISNULL(cta.Item.value('@Saldo', 'DECIMAL(18,2)'), 0.00)
         FROM @inXmlDia.nodes('//Cuenta') AS cta(Item)
         INNER JOIN dbo.Persona AS p
             ON (p.ValorDocumentoIdentidad = cta.Item.value('@ValorDocumentoIdentidadDelCliente', 'VARCHAR(32)'))
@@ -127,7 +134,37 @@ BEGIN
             WHERE (c.NumeroCuenta = cta.Item.value('@NumeroCuenta', 'VARCHAR(32)'))
         );
 
-        -- 5. Registrar Beneficiarios
+        SELECT
+            @idx = MIN(cn.Secuencia)
+            , @maxIdx = MAX(cn.Secuencia)
+        FROM @CuentasNuevas AS cn;
+
+        WHILE (@idx IS NOT NULL AND @idx <= @maxIdx)
+        BEGIN
+            INSERT dbo.Cuenta (
+                IdCAhorrista
+                , IdTipoCuentaAhorro
+                , NumeroCuenta
+                , FechaCreacion
+                , Saldo
+                , AcumuladosSinpe
+                , FechaAcumuladosSinpe
+            )
+            SELECT
+                cn.IdCAhorrista
+                , cn.IdTipoCuentaAhorro
+                , cn.NumeroCuenta
+                , cn.FechaCreacion
+                , cn.Saldo
+                , 0.00
+                , NULL
+            FROM @CuentasNuevas AS cn
+            WHERE (cn.Secuencia = @idx);
+
+            SET @idx = @idx + 1;
+        END;
+
+        -- 5. Registrar en Beneficiario a las personas designadas como beneficiarias
         INSERT dbo.Beneficiario (
             Id
         )
@@ -142,7 +179,7 @@ BEGIN
             WHERE (b.Id = p.Id)
         );
 
-        -- 6. Insertar relacion BenefDeCA
+        -- 6. Insertar relacion en BenefDeCA
         INSERT dbo.BenefDeCA (
             IdCuenta
             , IdBeneficiario
@@ -192,7 +229,7 @@ BEGIN
             WHERE (u.NombreUsuario = usr.Item.value('@User', 'VARCHAR(64)'))
         );
 
-        -- 8. Insertar permisos en UsuarioPuedeVer (si vienen en el XML)
+        -- 8. Insertar UsuarioPuedeVer (si viene en el XML)
         INSERT dbo.UsuarioPuedeVer (
             IdUsuario
             , IdCuenta
