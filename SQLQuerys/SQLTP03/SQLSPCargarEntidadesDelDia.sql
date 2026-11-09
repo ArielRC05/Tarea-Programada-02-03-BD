@@ -48,7 +48,7 @@ BEGIN
             WHERE (p.ValorDocumentoIdentidad = per.Item.value('@ValorDocumentoIdentidad', 'VARCHAR(32)'))
         );
 
-        -- 2. Insertar Telefonos
+        -- 2. Insertar Telefonos (telefono1 y telefono2)
         INSERT dbo.Telefono (
             IdPersona
             , Numero
@@ -85,7 +85,7 @@ BEGIN
                     AND (t.Numero = per.Item.value('@telefono2', 'VARCHAR(32)'))
             );
 
-        -- 3. Registrar CAhorrista para dueños de cuentas
+        -- 3. Registrar CAhorrista para duenos de cuentas
         INSERT dbo.CAhorrista (
             Id
         )
@@ -100,13 +100,15 @@ BEGIN
             WHERE (ca.Id = p.Id)
         );
 
-        -- 4. Insertar Cuentas (saldo inicial en 0.00 para disparar el trigger de Kendall)
+        -- 4. Insertar Cuentas (saldo inicial en 0.00 para disparar el trigger del primer EstadoCuenta)
         INSERT dbo.Cuenta (
             IdCAhorrista
             , IdTipoCuentaAhorro
             , NumeroCuenta
             , FechaCreacion
             , Saldo
+            , AcumuladosSinpe
+            , FechaAcumuladosSinpe
         )
         SELECT
             p.Id
@@ -114,6 +116,8 @@ BEGIN
             , cta.Item.value('@NumeroCuenta', 'VARCHAR(32)')
             , @inFechaOperacion
             , 0.00
+            , 0.00
+            , NULL
         FROM @inXmlDia.nodes('//Cuenta') AS cta(Item)
         INNER JOIN dbo.Persona AS p
             ON (p.ValorDocumentoIdentidad = cta.Item.value('@ValorDocumentoIdentidadDelCliente', 'VARCHAR(32)'))
@@ -165,6 +169,47 @@ BEGIN
             WHERE (bca.IdCuenta = c.Id)
                 AND (bca.IdBeneficiario = p.Id)
                 AND (bca.flagActivo = 1)
+        );
+
+        -- 7. Insertar Usuarios (si vienen en el XML)
+        INSERT dbo.Usuario (
+            IdPersona
+            , NombreUsuario
+            , Contrasena
+            , flagEsAdministrador
+        )
+        SELECT
+            p.Id
+            , usr.Item.value('@User', 'VARCHAR(64)')
+            , usr.Item.value('@Pass', 'VARCHAR(64)')
+            , CASE WHEN (usr.Item.value('@EsAdministrador', 'INT') = 1) THEN 1 ELSE 0 END
+        FROM @inXmlDia.nodes('//Usuario') AS usr(Item)
+        INNER JOIN dbo.Persona AS p
+            ON (p.ValorDocumentoIdentidad = usr.Item.value('@ValorDocId', 'VARCHAR(32)'))
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM dbo.Usuario AS u
+            WHERE (u.NombreUsuario = usr.Item.value('@User', 'VARCHAR(64)'))
+        );
+
+        -- 8. Insertar permisos en UsuarioPuedeVer (si vienen en el XML)
+        INSERT dbo.UsuarioPuedeVer (
+            IdUsuario
+            , IdCuenta
+        )
+        SELECT
+            u.Id
+            , c.Id
+        FROM @inXmlDia.nodes('//UsuarioPuedeVer') AS upv(Item)
+        INNER JOIN dbo.Usuario AS u
+            ON (u.NombreUsuario = upv.Item.value('@User', 'VARCHAR(64)'))
+        INNER JOIN dbo.Cuenta AS c
+            ON (c.NumeroCuenta = upv.Item.value('@NumeroCuenta', 'VARCHAR(32)'))
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM dbo.UsuarioPuedeVer AS uv
+            WHERE (uv.IdUsuario = u.Id)
+                AND (uv.IdCuenta = c.Id)
         );
 
         COMMIT TRANSACTION;
