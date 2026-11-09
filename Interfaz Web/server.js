@@ -21,7 +21,7 @@ app.post('/api/login', async (req, res) => {
             .input('inPass', sql.VarChar(64), pass)
             .input('inIP', sql.VarChar(64), ip)
             .output('outResultCode', sql.Int)
-            .execute('dbo.Login'); // Llama al SP de Login
+            .execute('dbo.Login');
 
         const codigoResultado = result.output.outResultCode;
 
@@ -47,7 +47,7 @@ app.post('/api/logout', async (req, res) => {
             .input('inIdUsuario', sql.Int, idUsuario)
             .input('inIP', sql.VarChar(64), ip)
             .output('outResultCode', sql.Int)
-            .execute('dbo.Logout'); // Llama al SP de Logout
+            .execute('dbo.Logout');
 
         res.status(200).json({ codigoResultado: result.output.outResultCode });
     } catch (err) {
@@ -65,12 +65,12 @@ app.get('/api/cuentas/:idUsuario', async (req, res) => {
         const result = await pool.request()
             .input('inIdUsuario', sql.Int, idUsuario)
             .output('outResultCode', sql.Int)
-            .execute('dbo.ListarCuentasUsuario'); // Llama al SP
+            .execute('dbo.ListarCuentasUsuario');
 
         if (result.output.outResultCode === 0) {
             res.status(200).json(result.recordset);
         } else {
-            res.status(400).json({ error: 'Error al listar las cuentas.' });
+            res.status(400).json({ error: 'Error al listar las cuentas.', codigo: result.output.outResultCode });
         }
     } catch (err) {
         console.error('Error en dbo.ListarCuentasUsuario:', err);
@@ -93,7 +93,7 @@ app.get('/api/beneficiarios/:idUsuario/:numeroCuenta', async (req, res) => {
         if (result.output.outResultCode === 0) {
             res.status(200).json(result.recordset);
         } else {
-            res.status(400).json({ error: 'Error al listar beneficiarios.' });
+            res.status(400).json({ error: 'Error al listar beneficiarios.', codigo: result.output.outResultCode });
         }
     } catch (err) {
         console.error('Error en dbo.ListarBeneficiarios:', err);
@@ -178,27 +178,72 @@ app.delete('/api/beneficiarios', async (req, res) => {
     }
 });
 
-// Endpoint 7: Listar Estados de Cuenta (Bitácora TipoOperacion = 7)
-app.get('/api/estados/:idUsuario/:numeroCuenta', async (req, res) => {
-    const { idUsuario, numeroCuenta } = req.params;
-    const ip = req.ip || req.connection.remoteAddress;
+// =========================================================
+// ENDPOINTS TP3: ESTADOS DE CUENTA Y DETALLE DE MOVIMIENTOS
+// =========================================================
+
+// Endpoint 7: Listar Estados de Cuenta (@inIdCuenta INT)
+app.get('/api/estados/:idCuenta', async (req, res) => {
+    const { idCuenta } = req.params;
 
     try {
         const pool = await poolPromise;
         const result = await pool.request()
-            .input('inIdUsuario', sql.Int, idUsuario)
-            .input('inNumeroCuenta', sql.VarChar(32), numeroCuenta)
-            .input('inIP', sql.VarChar(64), ip)
+            .input('inIdCuenta', sql.Int, idCuenta)
             .output('outResultCode', sql.Int)
             .execute('dbo.ListarEstadosCuenta');
 
         if (result.output.outResultCode === 0) {
             res.status(200).json(result.recordset);
         } else {
-            res.status(400).json({ error: 'Error al listar estados de cuenta.' });
+            res.status(400).json({ error: 'Error al listar estados de cuenta.', codigo: result.output.outResultCode });
         }
     } catch (err) {
         console.error('Error en dbo.ListarEstadosCuenta:', err);
+        res.status(500).json({ error: 'Error interno del servidor.' });
+    }
+});
+
+// Endpoint 8: Consultar un Estado de Cuenta (@inIdEstadoCuenta INT)
+app.get('/api/estado-cuenta/:idEstadoCuenta', async (req, res) => {
+    const { idEstadoCuenta } = req.params;
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('inIdEstadoCuenta', sql.Int, idEstadoCuenta)
+            .output('outResultCode', sql.Int)
+            .execute('dbo.ConsultarEstadoCuenta');
+
+        if (result.output.outResultCode === 0 && result.recordset.length > 0) {
+            res.status(200).json(result.recordset[0]);
+        } else {
+            res.status(400).json({ error: 'Error al consultar el estado de cuenta.', codigo: result.output.outResultCode });
+        }
+    } catch (err) {
+        console.error('Error en dbo.ConsultarEstadoCuenta:', err);
+        res.status(500).json({ error: 'Error interno del servidor.' });
+    }
+});
+
+// Endpoint 9: Listar Movimientos de un Estado de Cuenta (@inIdEstadoCuenta INT)
+app.get('/api/estado-cuenta/:idEstadoCuenta/movimientos', async (req, res) => {
+    const { idEstadoCuenta } = req.params;
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('inIdEstadoCuenta', sql.Int, idEstadoCuenta)
+            .output('outResultCode', sql.Int)
+            .execute('dbo.ListarMovimientosEstadoCuenta');
+
+        if (result.output.outResultCode === 0) {
+            res.status(200).json(result.recordset);
+        } else {
+            res.status(400).json({ error: 'Error al listar los movimientos del estado de cuenta.', codigo: result.output.outResultCode });
+        }
+    } catch (err) {
+        console.error('Error en dbo.ListarMovimientosEstadoCuenta:', err);
         res.status(500).json({ error: 'Error interno del servidor.' });
     }
 });
