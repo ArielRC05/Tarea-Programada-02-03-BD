@@ -1,6 +1,12 @@
 USE TareaAhorros;
 GO
 
+-- Ejemplo de ejecucion:
+-- DECLARE @outCode INT;
+-- EXEC dbo.ListarEstadosCuenta
+--     @inIdCuenta = 1
+--     , @outResultCode = @outCode OUTPUT;
+
 CREATE OR ALTER PROCEDURE dbo.ListarEstadosCuenta
     @inIdCuenta INT
     , @outResultCode INT OUTPUT
@@ -18,9 +24,11 @@ BEGIN
             , ec.SaldoInicial
             , ec.SaldoFinal
             , ec.SaldoMinimo
-        FROM dbo.EstadoCuenta ec
-        WHERE ec.IdCuenta = @inIdCuenta
-        ORDER BY ec.FechaFin DESC, ec.Id DESC;
+        FROM dbo.EstadoCuenta AS ec
+        WHERE (ec.IdCuenta = @inIdCuenta)
+        ORDER BY
+            ec.FechaFin DESC
+            , ec.Id DESC;
     END TRY
     BEGIN CATCH
         INSERT dbo.DBErrors (
@@ -31,7 +39,8 @@ BEGIN
             , ProcedureError
             , MensajeError
         )
-        SELECT ERROR_NUMBER()
+        SELECT
+            ERROR_NUMBER()
             , ERROR_STATE()
             , ERROR_SEVERITY()
             , ERROR_LINE()
