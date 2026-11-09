@@ -10,7 +10,12 @@
     --warning-text: #ea8600;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+}
 
 body {
     background-color: var(--bg-color);
@@ -21,8 +26,14 @@ body {
     min-height: 100vh;
 }
 
-.container { width: 100%; max-width: 800px; }
-.hidden { display: none !important; }
+.container {
+    width: 100%;
+    max-width: 900px;
+}
+
+.hidden {
+    display: none !important;
+}
 
 /* Tarjetas */
 .card {
@@ -45,20 +56,96 @@ body {
     align-items: center;
 }
 
-.card-body { padding: 24px; }
+.card-body {
+    padding: 24px;
+}
 
 /* Formularios y Botones */
-.form-group { margin-bottom: 16px; }
-.form-group label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 0.9rem; }
-.form-control { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; }
+.form-group {
+    margin-bottom: 16px;
+}
 
-.btn { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-.btn-primary { background-color: var(--primary-blue); color: white; }
-.btn-primary:hover { background-color: var(--hover-blue); }
-.btn-secondary { background-color: #e8eaed; color: var(--text-main); }
-.btn-danger { background-color: var(--danger); color: white; }
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
 
-.action-bar { display: flex; gap: 10px; margin-bottom: 20px; }
+.form-control {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.95rem;
+}
+
+.btn {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-primary {
+    background-color: var(--primary-blue);
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: var(--hover-blue);
+}
+
+.btn-secondary {
+    background-color: #e8eaed;
+    color: var(--text-main);
+}
+
+.btn-danger {
+    background-color: var(--danger);
+    color: white;
+}
+
+.action-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+/* Bloques de Resumen para Dashboard y Estado de Cuenta (TP3) */
+.section-title {
+    font-size: 1.05rem;
+    color: var(--text-main);
+    margin-bottom: 12px;
+}
+
+.text-helper {
+    margin-bottom: 14px;
+    color: var(--text-muted);
+    font-size: 0.92rem;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.summary-label {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
 
 /* Alerta llamativa para el 100% */
 .alert-flashy {
@@ -80,7 +167,25 @@ body {
 }
 
 /* Tablas */
-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
-th { background-color: #f1f3f4; font-weight: bold; }
-tr.clickable:hover { background-color: #f8f9fa; cursor: pointer; }
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+th, td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.9rem;
+}
+
+th {
+    background-color: #f1f3f4;
+    font-weight: bold;
+}
+
+tr.clickable:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
+}
