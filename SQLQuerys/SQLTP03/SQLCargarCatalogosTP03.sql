@@ -1,8 +1,16 @@
 USE TareaAhorros;
 GO
 
-CREATE OR ALTER PROCEDURE dbo.CargarCatalogos
-    @inXml XML
+-- Ejemplo de ejecucion:
+-- DECLARE @outCode INT;
+-- EXEC dbo.CargarEntidadesDelDia
+--     @inFechaOperacion = '2020-03-01'
+--     , @inXmlDia = @xmlDia
+--     , @outResultCode = @outCode OUTPUT;
+
+CREATE OR ALTER PROCEDURE dbo.CargarEntidadesDelDia
+    @inFechaOperacion DATE
+    , @inXmlDia XML
     , @outResultCode INT OUTPUT
 AS
 BEGIN
@@ -11,118 +19,152 @@ BEGIN
     BEGIN TRY
         SET @outResultCode = 0;
 
+        -- Control de flujo previo a la transaccion
+        IF (@inXmlDia IS NULL)
+        BEGIN
+            RETURN;
+        END;
+
         BEGIN TRANSACTION;
 
-        INSERT dbo.TipoDocuIdentidad (
-            Id
+        -- 1. Insertar Personas del dia
+        INSERT dbo.Persona (
+            IdTipoDocuIdentidad
+            , ValorDocumentoIdentidad
             , Nombre
+            , FechaNacimiento
+            , Email
         )
-        SELECT tipo.Item.value('@Id', 'INT')
-            , tipo.Item.value('@Nombre', 'VARCHAR(64)')
-        FROM @inXml.nodes('//TipoDocuIdentidad') AS tipo(Item)
+        SELECT
+            per.Item.value('@TipoDocuIdentidad', 'INT')
+            , per.Item.value('@ValorDocumentoIdentidad', 'VARCHAR(32)')
+            , per.Item.value('@Nombre', 'VARCHAR(64)')
+            , per.Item.value('@FechaNacimiento', 'DATE')
+            , per.Item.value('@Email', 'VARCHAR(128)')
+        FROM @inXmlDia.nodes('//Persona') AS per(Item)
         WHERE NOT EXISTS (
             SELECT 1
-            FROM dbo.TipoDocuIdentidad docu
-            WHERE docu.Id = tipo.Item.value('@Id', 'INT')
+            FROM dbo.Persona AS p
+            WHERE (p.ValorDocumentoIdentidad = per.Item.value('@ValorDocumentoIdentidad', 'VARCHAR(32)'))
         );
 
-        INSERT dbo.TipoMoneda (
-            Id
-            , Nombre
-            , Simbolo
+        -- 2. Insertar Telefonos
+        INSERT dbo.Telefono (
+            IdPersona
+            , Numero
         )
-        SELECT tipo.Item.value('@Id', 'INT')
-            , tipo.Item.value('@Nombre', 'VARCHAR(32)')
-            , tipo.Item.value('@Simbolo', 'NVARCHAR(4)')
-        FROM @inXml.nodes('//TipoMoneda') AS tipo(Item)
+        SELECT
+            p.Id
+            , per.Item.value('@telefono1', 'VARCHAR(32)')
+        FROM @inXmlDia.nodes('//Persona') AS per(Item)
+        INNER JOIN dbo.Persona AS p
+            ON (p.ValorDocumentoIdentidad = per.Item.value('@ValorDocumentoIdentidad', 'VARCHAR(32)'))
+        WHERE (per.Item.value('@telefono1', 'VARCHAR(32)') IS NOT NULL)
+            AND NOT EXISTS (
+                SELECT 1
+                FROM dbo.Telefono AS t
+                WHERE (t.IdPersona = p.Id)
+                    AND (t.Numero = per.Item.value('@telefono1', 'VARCHAR(32)'))
+            );
+
+        INSERT dbo.Telefono (
+            IdPersona
+            , Numero
+        )
+        SELECT
+            p.Id
+            , per.Item.value('@telefono2', 'VARCHAR(32)')
+        FROM @inXmlDia.nodes('//Persona') AS per(Item)
+        INNER JOIN dbo.Persona AS p
+            ON (p.ValorDocumentoIdentidad = per.Item.value('@ValorDocumentoIdentidad', 'VARCHAR(32)'))
+        WHERE (per.Item.value('@telefono2', 'VARCHAR(32)') IS NOT NULL)
+            AND NOT EXISTS (
+                SELECT 1
+                FROM dbo.Telefono AS t
+                WHERE (t.IdPersona = p.Id)
+                    AND (t.Numero = per.Item.value('@telefono2', 'VARCHAR(32)'))
+            );
+
+        -- 3. Registrar CAhorrista para dueños de cuentas
+        INSERT dbo.CAhorrista (
+            Id
+        )
+        SELECT DISTINCT
+            p.Id
+        FROM @inXmlDia.nodes('//Cuenta') AS cta(Item)
+        INNER JOIN dbo.Persona AS p
+            ON (p.ValorDocumentoIdentidad = cta.Item.value('@ValorDocumentoIdentidadDelCliente', 'VARCHAR(32)'))
         WHERE NOT EXISTS (
             SELECT 1
-            FROM dbo.TipoMoneda moneda
-            WHERE moneda.Id = tipo.Item.value('@Id', 'INT')
+            FROM dbo.CAhorrista AS ca
+            WHERE (ca.Id = p.Id)
         );
 
-        INSERT dbo.Parentesco (
-            Id
-            , Nombre
+        -- 4. Insertar Cuentas (saldo inicial en 0.00 para disparar el trigger de Kendall)
+        INSERT dbo.Cuenta (
+            IdCAhorrista
+            , IdTipoCuentaAhorro
+            , NumeroCuenta
+            , FechaCreacion
+            , Saldo
         )
-        SELECT tipo.Item.value('@Id', 'INT')
-            , tipo.Item.value('@Nombre', 'VARCHAR(32)')
-        FROM @inXml.nodes('//Parentezco') AS tipo(Item)
+        SELECT
+            p.Id
+            , cta.Item.value('@TipoCuentaId', 'INT')
+            , cta.Item.value('@NumeroCuenta', 'VARCHAR(32)')
+            , @inFechaOperacion
+            , 0.00
+        FROM @inXmlDia.nodes('//Cuenta') AS cta(Item)
+        INNER JOIN dbo.Persona AS p
+            ON (p.ValorDocumentoIdentidad = cta.Item.value('@ValorDocumentoIdentidadDelCliente', 'VARCHAR(32)'))
         WHERE NOT EXISTS (
             SELECT 1
-            FROM dbo.Parentesco pariente
-            WHERE pariente.Id = tipo.Item.value('@Id', 'INT')
+            FROM dbo.Cuenta AS c
+            WHERE (c.NumeroCuenta = cta.Item.value('@NumeroCuenta', 'VARCHAR(32)'))
         );
 
-        INSERT dbo.TipoCuentaAhorro (
+        -- 5. Registrar Beneficiarios
+        INSERT dbo.Beneficiario (
             Id
-            , IdTipoMoneda
-            , Nombre
-            , SaldoMinimo
-            , MultaSaldoMin
-            , CargoMensual
-            , NumRetirosHumano
-            , NumRetirosAutomatico
-            , ComisionHumano
-            , ComisionAutomatico
-            , MontoMaxSinpeDiario
-            , ComisionSinpe
-            , TasaInteresAnual
         )
-        SELECT tipo.Item.value('@Id', 'INT')
-            , tipo.Item.value('@IdTipoMoneda', 'INT')
-            , tipo.Item.value('@Nombre', 'VARCHAR(64)')
-            , tipo.Item.value('@SaldoMinimo', 'DECIMAL(18,2)')
-            , tipo.Item.value('@MultaSaldoMin', 'DECIMAL(18,2)')
-            , tipo.Item.value('@CargoMensual', 'DECIMAL(18,2)')
-            , tipo.Item.value('@NumRetirosHumano', 'INT')
-            , tipo.Item.value('@NumRetirosAutomatico', 'INT')
-            , tipo.Item.value('@ComisionHumano', 'DECIMAL(18,2)')
-            , tipo.Item.value('@ComisionAutomatico', 'DECIMAL(18,2)')
-            , tipo.Item.value('@MontoMaxSinpeDiario', 'DECIMAL(18,2)')
-            , tipo.Item.value('@ComisionSinpe', 'DECIMAL(18,2)')
-            , tipo.Item.value('@TasaInteresAnual', 'DECIMAL(5,2)')
-        FROM @inXml.nodes('//TipoCuentaAhorro') AS tipo(Item)
+        SELECT DISTINCT
+            p.Id
+        FROM @inXmlDia.nodes('//Beneficiario') AS ben(Item)
+        INNER JOIN dbo.Persona AS p
+            ON (p.ValorDocumentoIdentidad = ben.Item.value('@ValorDocumentoIdentidadBeneficiario', 'VARCHAR(32)'))
         WHERE NOT EXISTS (
             SELECT 1
-            FROM dbo.TipoCuentaAhorro cuenta
-            WHERE cuenta.Id = tipo.Item.value('@Id', 'INT')
+            FROM dbo.Beneficiario AS b
+            WHERE (b.Id = p.Id)
         );
 
-        INSERT dbo.TipoOperacion (
-            Id
-            , Nombre
+        -- 6. Insertar relacion BenefDeCA
+        INSERT dbo.BenefDeCA (
+            IdCuenta
+            , IdBeneficiario
+            , IdParentesco
+            , Porcentaje
+            , flagActivo
+            , FechaDesactivacion
         )
-        SELECT tipo.Item.value('@Id', 'INT')
-            , tipo.Item.value('@Nombre', 'VARCHAR(64)')
-        FROM @inXml.nodes('//TipoOperacion') AS tipo(Item)
+        SELECT
+            c.Id
+            , p.Id
+            , ben.Item.value('@IdParentezco', 'INT')
+            , ben.Item.value('@Porcentaje', 'INT')
+            , 1
+            , NULL
+        FROM @inXmlDia.nodes('//Beneficiario') AS ben(Item)
+        INNER JOIN dbo.Cuenta AS c
+            ON (c.NumeroCuenta = ben.Item.value('@NumeroCuenta', 'VARCHAR(32)'))
+        INNER JOIN dbo.Persona AS p
+            ON (p.ValorDocumentoIdentidad = ben.Item.value('@ValorDocumentoIdentidadBeneficiario', 'VARCHAR(32)'))
         WHERE NOT EXISTS (
             SELECT 1
-            FROM dbo.TipoOperacion operacion
-            WHERE operacion.Id = tipo.Item.value('@Id', 'INT')
-        );
-
-        INSERT dbo.TipoMovimiento (
-            Id
-            , Nombre
-            , flagEsCredito
-            , flagGeneraComprobante
-            , flagEsATM
-            , flagEsCajeroHumano
-            , flagEsSinpe
-        )
-        SELECT tipo.Item.value('@Id', 'INT')
-            , tipo.Item.value('@Nombre', 'VARCHAR(64)')
-            , CASE WHEN (tipo.Item.value('@Accion', 'VARCHAR(16)') = 'Credito') THEN 1 ELSE 0 END
-            , tipo.Item.value('@flagGeneraComprobante', 'BIT')
-            , CASE WHEN (tipo.Item.value('@Id', 'INT') IN (2, 4)) THEN 1 ELSE 0 END
-            , CASE WHEN (tipo.Item.value('@Id', 'INT') IN (1, 5)) THEN 1 ELSE 0 END
-            , CASE WHEN (tipo.Item.value('@Id', 'INT') IN (8, 9)) THEN 1 ELSE 0 END
-        FROM @inXml.nodes('//TipoMovimiento') AS tipo(Item)
-        WHERE NOT EXISTS (
-            SELECT 1
-            FROM dbo.TipoMovimiento movimiento
-            WHERE movimiento.Id = tipo.Item.value('@Id', 'INT')
+            FROM dbo.BenefDeCA AS bca
+            WHERE (bca.IdCuenta = c.Id)
+                AND (bca.IdBeneficiario = p.Id)
+                AND (bca.flagActivo = 1)
         );
 
         COMMIT TRANSACTION;
@@ -141,7 +183,8 @@ BEGIN
             , ProcedureError
             , MensajeError
         )
-        SELECT ERROR_NUMBER()
+        SELECT
+            ERROR_NUMBER()
             , ERROR_STATE()
             , ERROR_SEVERITY()
             , ERROR_LINE()
