@@ -3,12 +3,12 @@ GO
 
 -- Ejemplo de ejecucion:
 -- DECLARE @outCode INT;
--- EXEC dbo.ListarMovimientosEstadoCuenta
---     @inIdEstadoCuenta = 1
+-- EXEC dbo.ListarEstadosCuenta
+--     @inIdCuenta = 1
 --     , @outResultCode = @outCode OUTPUT;
 
-CREATE OR ALTER PROCEDURE dbo.ListarMovimientosEstadoCuenta
-    @inIdEstadoCuenta INT
+CREATE OR ALTER PROCEDURE dbo.ListarEstadosCuenta
+    @inIdCuenta INT
     , @outResultCode INT OUTPUT
 AS
 BEGIN
@@ -18,15 +18,17 @@ BEGIN
         SET @outResultCode = 0;
 
         SELECT
-            m.Fecha
-            , m.Monto
-            , m.Descripcion
-            , m.NuevoSaldo
-        FROM dbo.Movimiento AS m
-        WHERE (m.IdEstadoCuenta = @inIdEstadoCuenta)
+            ec.Id
+            , ec.FechaInicio
+            , ec.FechaFin
+            , ec.SaldoInicial
+            , ec.SaldoFinal
+            , ec.SaldoMinimo
+        FROM dbo.EstadoCuenta AS ec
+        WHERE (ec.IdCuenta = @inIdCuenta)
         ORDER BY
-            m.Fecha ASC
-            , m.Id ASC;
+            ec.FechaFin DESC
+            , ec.Id DESC;
     END TRY
     BEGIN CATCH
         INSERT dbo.DBErrors (
