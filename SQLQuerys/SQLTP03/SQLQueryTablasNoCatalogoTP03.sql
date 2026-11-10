@@ -107,7 +107,7 @@ CREATE TABLE dbo.EstadoCuenta (
     , FechaFin DATE NOT NULL
     , SaldoInicial DECIMAL(18,2) NOT NULL
     , SaldoFinal DECIMAL(18,2) NOT NULL
-    , SaldoMinimo DECIMAL(18,2) NOT NULL
+    , SaldoMinimo DECIMAL(18,2) NULL
     , CantTransferenciasEntrantes INT NOT NULL DEFAULT 0 --sinpe entrante en el periodo
     , CantTransferenciasSalientes INT NOT NULL DEFAULT 0 --sinpe saliente en el periodo
     , CantOperacionesATM INT NOT NULL DEFAULT 0 --operaciones en cajero automatico en el periodo

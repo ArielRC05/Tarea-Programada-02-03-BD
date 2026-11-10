@@ -201,7 +201,7 @@ BEGIN
             UPDATE dbo.EstadoCuenta
             SET SaldoFinal = @SaldoFinal
                 , SaldoMinimo = CASE
-                                    WHEN (@SaldoFinal < SaldoMinimo) THEN @NuevoSaldo
+                                    WHEN (SaldoMinimo IS NULL) THEN @NuevoSaldo
                                     WHEN (@NuevoSaldo < SaldoMinimo) THEN @NuevoSaldo
                                     ELSE SaldoMinimo
                                 END
