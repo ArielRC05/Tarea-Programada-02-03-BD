@@ -6,12 +6,14 @@ GO
 --EXEC dbo.CerrarYAbrirEstadoCuenta
 --    @inIdEstadoCuenta = 1
 --    , @inFechaOperacion = '2026-04-01'
+--    , @inIdEventLog = 1
 --    , @outResultCode = @r OUTPUT;
 --SELECT @r AS outResultCode;
 
-CREATE PROCEDURE dbo.CerrarYAbrirEstadoCuenta
+CREATE OR ALTER PROCEDURE dbo.CerrarYAbrirEstadoCuenta
     @inIdEstadoCuenta INT
     , @inFechaOperacion DATE
+    , @inIdEventLog INT
     , @outResultCode INT OUTPUT
 AS
 BEGIN
@@ -221,6 +223,12 @@ BEGIN
                 , 0
                 , 0;
                  
+            --Avance del proceso masivo junto con el cierre de esta cuenta
+            UPDATE dbo.EventLog WITH (ROWLOCK)
+            SET UltimoIdProcesado = @inIdEstadoCuenta
+                , CantIdsProcesados = CantIdsProcesados + 1
+            WHERE Id = @inIdEventLog;
+
             UPDATE dbo.Cuenta WITH (ROWLOCK) --saldo actualizado de ultimo
             SET Saldo = @SaldoCierre
             WHERE Id = @IdCuenta;
