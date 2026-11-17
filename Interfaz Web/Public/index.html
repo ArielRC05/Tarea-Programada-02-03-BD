@@ -545,9 +545,14 @@
         tbody.innerHTML = '<tr><td colspan="6">Cargando...</td></tr>';
         
         try {
-            const res = await fetch(`${baseURL}/estados/${idCuentaActual}`);
+            const res = await fetch(`${baseURL}/estados/${idCuentaActual}?idUsuario=${usuarioActual}`);
             const estados = await res.json();
             tbody.innerHTML = '';
+
+            if (!res.ok) {
+                tbody.innerHTML = `<tr><td colspan="6" style="color:red;">${estados.error || 'Error al cargar los estados de cuenta'}</td></tr>`;
+                return;
+            }
 
             if (!Array.isArray(estados) || estados.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No hay estados de cuenta registrados para esta cuenta.</td></tr>';
@@ -585,12 +590,17 @@
 
         try {
             const [resEstado, resMovimientos] = await Promise.all([
-                fetch(`${baseURL}/estado-cuenta/${idEstadoCuenta}`),
-                fetch(`${baseURL}/estado-cuenta/${idEstadoCuenta}/movimientos`)
+                fetch(`${baseURL}/estado-cuenta/${idEstadoCuenta}?idUsuario=${usuarioActual}`),
+                fetch(`${baseURL}/estado-cuenta/${idEstadoCuenta}/movimientos?idUsuario=${usuarioActual}`)
             ]);
 
             const infoEstado = await resEstado.json();
             const movimientos = await resMovimientos.json();
+
+            if (!resEstado.ok || !resMovimientos.ok) {
+                tbodyMov.innerHTML = `<tr><td colspan="4" style="color:red;">${infoEstado.error || movimientos.error || 'No autorizado o error al cargar el detalle.'}</td></tr>`;
+                return;
+            }
 
             if (resEstado.ok && infoEstado) {
                 document.getElementById('det-fecha').innerText = formatearFecha(infoEstado.Fecha);

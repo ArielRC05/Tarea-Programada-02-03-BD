@@ -182,21 +182,30 @@ app.delete('/api/beneficiarios', async (req, res) => {
 // ENDPOINTS TP3: ESTADOS DE CUENTA Y DETALLE DE MOVIMIENTOS
 // =========================================================
 
-// Endpoint 7: Listar Estados de Cuenta (@inIdCuenta INT)
+// Endpoint 7: Listar Estados de Cuenta (@inIdUsuario INT, @inIdCuenta INT)
 app.get('/api/estados/:idCuenta', async (req, res) => {
     const { idCuenta } = req.params;
+    const idUsuario = Number(req.query.idUsuario);
+
+    if (!idUsuario) {
+        return res.status(400).json({ error: 'idUsuario requerido.' });
+    }
 
     try {
         const pool = await poolPromise;
         const result = await pool.request()
+            .input('inIdUsuario', sql.Int, idUsuario)
             .input('inIdCuenta', sql.Int, idCuenta)
             .output('outResultCode', sql.Int)
             .execute('dbo.ListarEstadosCuenta');
 
-        if (result.output.outResultCode === 0) {
+        const codigo = result.output.outResultCode;
+        if (codigo === 0) {
             res.status(200).json(result.recordset);
+        } else if (codigo === 50003) {
+            res.status(403).json({ error: 'No autorizado para ver esta cuenta.', codigo });
         } else {
-            res.status(400).json({ error: 'Error al listar estados de cuenta.', codigo: result.output.outResultCode });
+            res.status(400).json({ error: 'Error al listar estados de cuenta.', codigo });
         }
     } catch (err) {
         console.error('Error en dbo.ListarEstadosCuenta:', err);
@@ -204,21 +213,32 @@ app.get('/api/estados/:idCuenta', async (req, res) => {
     }
 });
 
-// Endpoint 8: Consultar un Estado de Cuenta (@inIdEstadoCuenta INT)
+// Endpoint 8: Consultar un Estado de Cuenta (Bitácora TipoOperacion = 7)
 app.get('/api/estado-cuenta/:idEstadoCuenta', async (req, res) => {
     const { idEstadoCuenta } = req.params;
+    const idUsuario = Number(req.query.idUsuario);
+    const ip = req.ip || req.connection.remoteAddress;
+
+    if (!idUsuario) {
+        return res.status(400).json({ error: 'idUsuario requerido.' });
+    }
 
     try {
         const pool = await poolPromise;
         const result = await pool.request()
+            .input('inIdUsuario', sql.Int, idUsuario)
             .input('inIdEstadoCuenta', sql.Int, idEstadoCuenta)
+            .input('inIP', sql.VarChar(64), ip)
             .output('outResultCode', sql.Int)
             .execute('dbo.ConsultarEstadoCuenta');
 
-        if (result.output.outResultCode === 0 && result.recordset.length > 0) {
+        const codigo = result.output.outResultCode;
+        if (codigo === 0 && result.recordset.length > 0) {
             res.status(200).json(result.recordset[0]);
+        } else if (codigo === 50003) {
+            res.status(403).json({ error: 'No autorizado para consultar este estado de cuenta.', codigo });
         } else {
-            res.status(400).json({ error: 'Error al consultar el estado de cuenta.', codigo: result.output.outResultCode });
+            res.status(400).json({ error: 'Error al consultar el estado de cuenta.', codigo });
         }
     } catch (err) {
         console.error('Error en dbo.ConsultarEstadoCuenta:', err);
@@ -226,21 +246,32 @@ app.get('/api/estado-cuenta/:idEstadoCuenta', async (req, res) => {
     }
 });
 
-// Endpoint 9: Listar Movimientos de un Estado de Cuenta (@inIdEstadoCuenta INT)
+// Endpoint 9: Listar Movimientos de un Estado de Cuenta (Bitácora TipoOperacion = 8)
 app.get('/api/estado-cuenta/:idEstadoCuenta/movimientos', async (req, res) => {
     const { idEstadoCuenta } = req.params;
+    const idUsuario = Number(req.query.idUsuario);
+    const ip = req.ip || req.connection.remoteAddress;
+
+    if (!idUsuario) {
+        return res.status(400).json({ error: 'idUsuario requerido.' });
+    }
 
     try {
         const pool = await poolPromise;
         const result = await pool.request()
+            .input('inIdUsuario', sql.Int, idUsuario)
             .input('inIdEstadoCuenta', sql.Int, idEstadoCuenta)
+            .input('inIP', sql.VarChar(64), ip)
             .output('outResultCode', sql.Int)
             .execute('dbo.ListarMovimientosEstadoCuenta');
 
-        if (result.output.outResultCode === 0) {
+        const codigo = result.output.outResultCode;
+        if (codigo === 0) {
             res.status(200).json(result.recordset);
+        } else if (codigo === 50003) {
+            res.status(403).json({ error: 'No autorizado para consultar los movimientos de este estado de cuenta.', codigo });
         } else {
-            res.status(400).json({ error: 'Error al listar los movimientos del estado de cuenta.', codigo: result.output.outResultCode });
+            res.status(400).json({ error: 'Error al listar los movimientos del estado de cuenta.', codigo });
         }
     } catch (err) {
         console.error('Error en dbo.ListarMovimientosEstadoCuenta:', err);

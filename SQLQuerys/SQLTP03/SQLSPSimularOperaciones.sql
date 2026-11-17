@@ -14,30 +14,35 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    DECLARE @fechaInicio DATE;
-    DECLARE @fechaFin DATE;
-    DECLARE @fechaActual DATE;
-    DECLARE @ultimaFechaCerrada DATE;
-    DECLARE @xmlDia XML;
-    DECLARE @codigoSP INT;
-
-    DECLARE @idxMov INT;
-    DECLARE @maxMov INT;
-    DECLARE @numeroCuenta VARCHAR(32);
-    DECLARE @nombreTipoMov VARCHAR(64);
-    DECLARE @monto DECIMAL(18,2);
-    DECLARE @descripcion VARCHAR(256);
-
-    DECLARE @MovimientosDelDia TABLE (
-        Secuencia INT IDENTITY(1,1) PRIMARY KEY
-        , NumeroCuenta VARCHAR(32)
-        , NombreTipoMovimiento VARCHAR(64)
-        , Monto DECIMAL(18,2)
-        , Descripcion VARCHAR(256)
-    );
-
     BEGIN TRY
         SET @outResultCode = 0;
+
+        DECLARE @fechaInicio DATE;
+        DECLARE @fechaFin DATE;
+        DECLARE @fechaActual DATE;
+        DECLARE @ultimaFechaCerrada DATE;
+        DECLARE @xmlDia XML;
+        DECLARE @codigoSP INT;
+        DECLARE @IDEVENTOCIERRE INT = 1;
+        DECLARE @IDEVENTOMOVIMIENTOS INT = 2;
+        DECLARE @currentEventLogId INT;
+        DECLARE @ultimoIdProcesado INT;
+        DECLARE @cantMovimientosDia INT;
+
+        DECLARE @idxMov INT;
+        DECLARE @maxMov INT;
+        DECLARE @numeroCuenta VARCHAR(32);
+        DECLARE @nombreTipoMov VARCHAR(64);
+        DECLARE @monto DECIMAL(18,2);
+        DECLARE @descripcion VARCHAR(256);
+
+        DECLARE @MovimientosDelDia TABLE (
+            Secuencia INT IDENTITY(1,1) PRIMARY KEY
+            , NumeroCuenta VARCHAR(32)
+            , NombreTipoMovimiento VARCHAR(64)
+            , Monto DECIMAL(18,2)
+            , Descripcion VARCHAR(256)
+        );
 
         -- 1. Obtener primera y ultima fecha del XML
         SELECT
@@ -45,89 +50,143 @@ BEGIN
             , @fechaFin = MAX(F.Item.value('@Fecha', 'DATE'))
         FROM @inXml.nodes('//FechaOperacion') AS F(Item);
 
-        -- Error 50202: la informacion preprocesada se ensucio
+        -- Error 50202: existe un proceso incompleto fuera del rango actual
         IF EXISTS (
             SELECT 1
             FROM dbo.EventLog AS el
-            WHERE (el.IdTipoEvento = 1)
+            WHERE (el.IdTipoEvento IN (@IDEVENTOCIERRE, @IDEVENTOMOVIMIENTOS))
                 AND (el.CantIdsProcesados < el.CantIdsPorProcesar)
+                AND (
+                    (el.FechaEvento < @fechaInicio)
+                    OR (el.FechaEvento > @fechaFin)
+                )
         )
         BEGIN
             SET @outResultCode = 50202;
             RETURN;
         END;
 
-        -- Error 50301: hay una fecha previa sin procesar
+        -- Determinar ultima fecha cerrada completamente
         SELECT
             @ultimaFechaCerrada = MAX(el.FechaEvento)
         FROM dbo.EventLog AS el
-        WHERE (el.IdTipoEvento = 1);
+        WHERE (el.IdTipoEvento = @IDEVENTOCIERRE)
+            AND (el.CantIdsProcesados = el.CantIdsPorProcesar);
 
-        IF (@ultimaFechaCerrada IS NOT NULL AND @fechaInicio > DATEADD(DAY, 1, @ultimaFechaCerrada))
-        BEGIN
-            SET @outResultCode = 50301;
-            RETURN;
-        END;
-
-        -- Error 50201: el proceso ya corrio para esa fecha
-        IF EXISTS (
-            SELECT 1
-            FROM dbo.EventLog AS el
-            WHERE (el.IdTipoEvento = 1)
-                AND (el.FechaEvento >= @fechaInicio)
-                AND (el.CantIdsProcesados = el.CantIdsPorProcesar)
-        )
+        -- Error 50201: el rango completo ya corrio sin pendientes
+        IF (@ultimaFechaCerrada IS NOT NULL)
+            AND (@ultimaFechaCerrada >= @fechaFin)
+            AND NOT EXISTS (
+                SELECT 1
+                FROM dbo.EventLog AS el
+                WHERE (el.IdTipoEvento IN (@IDEVENTOCIERRE, @IDEVENTOMOVIMIENTOS))
+                    AND (el.CantIdsProcesados < el.CantIdsPorProcesar)
+            )
         BEGIN
             SET @outResultCode = 50201;
             RETURN;
         END;
 
-        SET @fechaActual = @fechaInicio;
+        --si se brinco una fecha, procesar primero desde el dia siguiente a la ultima fecha cerrada
+        SET @fechaActual = CASE
+                               WHEN (@ultimaFechaCerrada IS NOT NULL)
+                                    AND (@fechaInicio > DATEADD(DAY, 1, @ultimaFechaCerrada))
+                                   THEN DATEADD(DAY, 1, @ultimaFechaCerrada)
+                               ELSE @fechaInicio
+                           END;
 
         -- 2. Recorrido diario consecutivo
-        WHILE (@fechaActual IS NOT NULL AND @fechaActual <= @fechaFin)
+        WHILE (@fechaActual IS NOT NULL)
+            AND (@fechaActual <= @fechaFin)
         BEGIN
-            SET @xmlDia = NULL;
-
-            SELECT
-                @xmlDia = F.Item.query('.')
-            FROM @inXml.nodes('//FechaOperacion[@Fecha = sql:variable("@fechaActual")]') AS F(Item);
-
-            -- Paso A: Cargar entidades y aplicar movimientos si el dia existe en el XML
-            IF (@xmlDia IS NOT NULL AND CONVERT(NVARCHAR(MAX), @xmlDia) <> '')
+            -- Paso A: Cargar entidades y aplicar movimientos si el dia aun no completo movimientos
+            IF NOT EXISTS (
+                SELECT 1
+                FROM dbo.EventLog AS el
+                WHERE (el.IdTipoEvento = @IDEVENTOMOVIMIENTOS)
+                    AND (el.FechaEvento = @fechaActual)
+                    AND (el.CantIdsPorProcesar = el.CantIdsProcesados)
+            )
             BEGIN
-                EXEC dbo.CargarEntidadesDelDia
-                    @inFechaOperacion = @fechaActual
-                    , @inXmlDia = @xmlDia
-                    , @outResultCode = @codigoSP OUTPUT;
+                SET @currentEventLogId = 0;
+                SET @ultimoIdProcesado = 0;
+                SET @cantMovimientosDia = 0;
+                SET @xmlDia = NULL;
 
-                IF (@codigoSP <> 0)
-                BEGIN
-                    SET @outResultCode = @codigoSP;
-                    RETURN;
-                END;
+                SELECT
+                    @currentEventLogId = el.Id
+                    , @ultimoIdProcesado = el.UltimoIdProcesado
+                FROM dbo.EventLog AS el
+                WHERE (el.IdTipoEvento = @IDEVENTOMOVIMIENTOS)
+                    AND (el.FechaEvento = @fechaActual);
+
+                SELECT
+                    @xmlDia = F.Item.query('.')
+                FROM @inXml.nodes('//FechaOperacion[@Fecha = sql:variable("@fechaActual")]') AS F(Item);
 
                 DELETE FROM @MovimientosDelDia;
 
-                INSERT INTO @MovimientosDelDia (
-                    NumeroCuenta
-                    , NombreTipoMovimiento
-                    , Monto
+                IF (@xmlDia IS NOT NULL)
+                    AND (CONVERT(NVARCHAR(MAX), @xmlDia) <> '')
+                BEGIN
+                    EXEC dbo.CargarEntidadesDelDia
+                        @inFechaOperacion = @fechaActual
+                        , @inXmlDia = @xmlDia
+                        , @outResultCode = @codigoSP OUTPUT;
+
+                    IF (@codigoSP <> 0)
+                    BEGIN
+                        SET @outResultCode = @codigoSP;
+                        RETURN;
+                    END;
+
+                    INSERT INTO @MovimientosDelDia (
+                        NumeroCuenta
+                        , NombreTipoMovimiento
+                        , Monto
+                        , Descripcion
+                    )
+                    SELECT
+                        LTRIM(RTRIM(M.Item.value('@CodigoCuenta', 'VARCHAR(32)')))
+                        , LTRIM(RTRIM(M.Item.value('@Tipo', 'VARCHAR(64)')))
+                        , M.Item.value('@Monto', 'DECIMAL(18,2)')
+                        , M.Item.value('@Descripcion', 'VARCHAR(256)')
+                    FROM @xmlDia.nodes('//Movimientos') AS M(Item);
+
+                    SET @cantMovimientosDia = @@ROWCOUNT;
+                END;
+
+                INSERT dbo.EventLog (
+                    IdTipoEvento
+                    , FechaEvento
                     , Descripcion
+                    , CantIdsPorProcesar
+                    , UltimoIdProcesado
+                    , CantIdsProcesados
                 )
                 SELECT
-                    LTRIM(RTRIM(M.Item.value('@CodigoCuenta', 'VARCHAR(32)')))
-                    , LTRIM(RTRIM(M.Item.value('@Tipo', 'VARCHAR(64)')))
-                    , M.Item.value('@Monto', 'DECIMAL(18,2)')
-                    , M.Item.value('@Descripcion', 'VARCHAR(256)')
-                FROM @xmlDia.nodes('//Movimientos') AS M(Item);
+                    @IDEVENTOMOVIMIENTOS
+                    , @fechaActual
+                    , 'Movimientos del dia'
+                    , @cantMovimientosDia
+                    , 0
+                    , 0
+                WHERE (@currentEventLogId = 0);
+
+                SET @currentEventLogId = CASE
+                                             WHEN (@currentEventLogId = 0) THEN SCOPE_IDENTITY()
+                                             ELSE @currentEventLogId
+                                         END;
+
+                SET @idxMov = @ultimoIdProcesado + 1;
 
                 SELECT
-                    @idxMov = MIN(mov.Secuencia)
-                    , @maxMov = MAX(mov.Secuencia)
+                    @maxMov = MAX(mov.Secuencia)
                 FROM @MovimientosDelDia AS mov;
 
-                WHILE (@idxMov IS NOT NULL AND @idxMov <= @maxMov)
+                WHILE (@idxMov IS NOT NULL)
+                    AND (@maxMov IS NOT NULL)
+                    AND (@idxMov <= @maxMov)
                 BEGIN
                     SELECT
                         @numeroCuenta = mov.NumeroCuenta
@@ -143,9 +202,11 @@ BEGIN
                         , @inNombreTipoMovimiento = @nombreTipoMov
                         , @inMonto = @monto
                         , @inDescripcion = @descripcion
+                        , @inIdEventLog = @currentEventLogId
+                        , @inSecuenciaMov = @idxMov
                         , @outResultCode = @codigoSP OUTPUT;
 
-                    IF (@codigoSP IN (50005, 50014, 50201, 50202, 50301))
+                    IF (@codigoSP <> 0)
                     BEGIN
                         SET @outResultCode = @codigoSP;
                         RETURN;
@@ -155,15 +216,24 @@ BEGIN
                 END;
             END;
 
-            -- Paso B: Procesar cierres al final de cada fecha
-            EXEC dbo.ProcesarCierresDelDia
-                @inFechaOperacion = @fechaActual
-                , @outResultCode = @codigoSP OUTPUT;
-
-            IF (@codigoSP <> 0)
+            -- Paso B: Procesar cierres al final de cada fecha si aun no completo
+            IF NOT EXISTS (
+                SELECT 1
+                FROM dbo.EventLog AS el
+                WHERE (el.IdTipoEvento = @IDEVENTOCIERRE)
+                    AND (el.FechaEvento = @fechaActual)
+                    AND (el.CantIdsPorProcesar = el.CantIdsProcesados)
+            )
             BEGIN
-                SET @outResultCode = @codigoSP;
-                RETURN;
+                EXEC dbo.ProcesarCierresDelDia
+                    @inFechaOperacion = @fechaActual
+                    , @outResultCode = @codigoSP OUTPUT;
+
+                IF (@codigoSP <> 0)
+                BEGIN
+                    SET @outResultCode = @codigoSP;
+                    RETURN;
+                END;
             END;
 
             SET @fechaActual = DATEADD(DAY, 1, @fechaActual);

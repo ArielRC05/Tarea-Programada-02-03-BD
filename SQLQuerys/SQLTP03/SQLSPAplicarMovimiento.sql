@@ -17,6 +17,8 @@ CREATE OR ALTER PROCEDURE dbo.AplicarMovimiento
     , @inNombreTipoMovimiento VARCHAR(64)
     , @inMonto DECIMAL(18,2)
     , @inDescripcion VARCHAR(256)
+    , @inIdEventLog INT = NULL
+    , @inSecuenciaMov INT = NULL
     , @outResultCode INT OUTPUT
 AS
 BEGIN
@@ -201,8 +203,8 @@ BEGIN
             UPDATE dbo.EstadoCuenta
             SET SaldoFinal = @SaldoFinal
                 , SaldoMinimo = CASE
-                                    WHEN (SaldoMinimo IS NULL) THEN @NuevoSaldo
-                                    WHEN (@NuevoSaldo < SaldoMinimo) THEN @NuevoSaldo
+                                    WHEN (SaldoMinimo IS NULL) THEN @SaldoFinal
+                                    WHEN (@SaldoFinal < SaldoMinimo) THEN @SaldoFinal
                                     ELSE SaldoMinimo
                                 END
                 , CantOperacionesATM = CantOperacionesATM + @flagEsATM
@@ -210,6 +212,13 @@ BEGIN
                 , CantTransferenciasEntrantes = CantTransferenciasEntrantes + @flagEsSinpeEntrante
                 , CantTransferenciasSalientes = CantTransferenciasSalientes + @flagEsSinpeSaliente
             WHERE Id = @IdEstadoCuenta;
+
+            UPDATE dbo.EventLog WITH (ROWLOCK)
+            SET UltimoIdProcesado = @inSecuenciaMov
+                , CantIdsProcesados = CantIdsProcesados + 1
+            WHERE (Id = @inIdEventLog)
+                AND (@inIdEventLog IS NOT NULL)
+                AND (@inSecuenciaMov IS NOT NULL);
 
             UPDATE dbo.Cuenta WITH (ROWLOCK)
             SET Saldo = @SaldoFinal

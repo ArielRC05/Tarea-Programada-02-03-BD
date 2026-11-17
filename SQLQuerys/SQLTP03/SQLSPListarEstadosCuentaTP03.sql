@@ -4,18 +4,34 @@ GO
 -- Ejemplo de ejecucion:
 -- DECLARE @outCode INT;
 -- EXEC dbo.ListarEstadosCuenta
---     @inIdCuenta = 1
+--     @inIdUsuario = 1
+--     , @inIdCuenta = 1
 --     , @outResultCode = @outCode OUTPUT;
 
 CREATE OR ALTER PROCEDURE dbo.ListarEstadosCuenta
-    @inIdCuenta INT
+    @inIdUsuario INT
+    , @inIdCuenta INT
     , @outResultCode INT OUTPUT
 AS
 BEGIN
     SET NOCOUNT ON;
 
     BEGIN TRY
+        DECLARE @idCuentaValidada INT;
+
         SET @outResultCode = 0;
+
+        SELECT
+            @idCuentaValidada = puedeVer.IdCuenta
+        FROM dbo.UsuarioPuedeVer AS puedeVer
+        WHERE (puedeVer.IdUsuario = @inIdUsuario)
+            AND (puedeVer.IdCuenta = @inIdCuenta);
+
+        IF (@idCuentaValidada IS NULL)
+        BEGIN
+            SET @outResultCode = 50003;
+            RETURN;
+        END;
 
         SELECT
             ec.Id
@@ -32,7 +48,7 @@ BEGIN
             , ec.CantTransferenciasEntrantes
             , ec.CantTransferenciasSalientes
         FROM dbo.EstadoCuenta AS ec
-        WHERE (ec.IdCuenta = @inIdCuenta)
+        WHERE (ec.IdCuenta = @idCuentaValidada)
         ORDER BY
             ec.FechaFin DESC
             , ec.Id DESC;
