@@ -14,9 +14,9 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    DECLARE @flagEnTransaccion BIT = 0;
-
     BEGIN TRY
+        DECLARE @flagEnTransaccion BIT = 0;
+
         SET @outResultCode = 0;
 
         BEGIN TRANSACTION;
@@ -91,14 +91,36 @@ BEGIN
             , tipo.Item.value('@Nombre', 'VARCHAR(64)')
             , tipo.Item.value('@SaldoMinimo', 'DECIMAL(18,2)')
             , tipo.Item.value('@MultaSaldoMin', 'DECIMAL(18,2)')
-            , ISNULL(tipo.Item.value('@CargoMensual', 'DECIMAL(18,2)'), ISNULL(tipo.Item.value('@CargoAnual', 'DECIMAL(18,2)'), 0.00))
+            , CASE
+                  WHEN (tipo.Item.value('@CargoMensual', 'DECIMAL(18,2)') IS NOT NULL) THEN tipo.Item.value('@CargoMensual', 'DECIMAL(18,2)')
+                  WHEN (tipo.Item.value('@CargoAnual', 'DECIMAL(18,2)') IS NOT NULL) THEN tipo.Item.value('@CargoAnual', 'DECIMAL(18,2)')
+                  ELSE 0.00
+              END
             , tipo.Item.value('@NumRetirosHumano', 'INT')
             , tipo.Item.value('@NumRetirosAutomatico', 'INT')
-            , ISNULL(tipo.Item.value('@ComisionHumano', 'DECIMAL(18,2)'), ISNULL(tipo.Item.value('@comisionHumano', 'DECIMAL(18,2)'), 0.00))
-            , ISNULL(tipo.Item.value('@ComisionAutomatico', 'DECIMAL(18,2)'), ISNULL(tipo.Item.value('@comisionAutomatico', 'DECIMAL(18,2)'), 0.00))
-            , ISNULL(tipo.Item.value('@MontoMaxSinpeDiario', 'DECIMAL(18,2)'), 100000.00)
-            , ISNULL(tipo.Item.value('@ComisionSinpe', 'DECIMAL(18,2)'), 500.00)
-            , ISNULL(tipo.Item.value('@TasaInteresAnual', 'DECIMAL(5,2)'), ISNULL(tipo.Item.value('@interes', 'DECIMAL(5,2)'), 0.00))
+            , CASE
+                  WHEN (tipo.Item.value('@ComisionHumano', 'DECIMAL(18,2)') IS NOT NULL) THEN tipo.Item.value('@ComisionHumano', 'DECIMAL(18,2)')
+                  WHEN (tipo.Item.value('@comisionHumano', 'DECIMAL(18,2)') IS NOT NULL) THEN tipo.Item.value('@comisionHumano', 'DECIMAL(18,2)')
+                  ELSE 0.00
+              END
+            , CASE
+                  WHEN (tipo.Item.value('@ComisionAutomatico', 'DECIMAL(18,2)') IS NOT NULL) THEN tipo.Item.value('@ComisionAutomatico', 'DECIMAL(18,2)')
+                  WHEN (tipo.Item.value('@comisionAutomatico', 'DECIMAL(18,2)') IS NOT NULL) THEN tipo.Item.value('@comisionAutomatico', 'DECIMAL(18,2)')
+                  ELSE 0.00
+              END
+            , CASE
+                  WHEN (tipo.Item.value('@MontoMaxSinpeDiario', 'DECIMAL(18,2)') IS NOT NULL) THEN tipo.Item.value('@MontoMaxSinpeDiario', 'DECIMAL(18,2)')
+                  ELSE 100000.00
+              END
+            , CASE
+                  WHEN (tipo.Item.value('@ComisionSinpe', 'DECIMAL(18,2)') IS NOT NULL) THEN tipo.Item.value('@ComisionSinpe', 'DECIMAL(18,2)')
+                  ELSE 500.00
+              END
+            , CASE
+                  WHEN (tipo.Item.value('@TasaInteresAnual', 'DECIMAL(5,2)') IS NOT NULL) THEN tipo.Item.value('@TasaInteresAnual', 'DECIMAL(5,2)')
+                  WHEN (tipo.Item.value('@interes', 'DECIMAL(5,2)') IS NOT NULL) THEN tipo.Item.value('@interes', 'DECIMAL(5,2)')
+                  ELSE 0.00
+              END
         FROM @inXml.nodes('//TipoCuentaAhorro') AS tipo(Item)
         WHERE NOT EXISTS (
             SELECT 1
@@ -112,13 +134,22 @@ BEGIN
             , Nombre
         )
         SELECT
-            ISNULL(tipo.Item.value('@Id', 'INT'), tipo.Item.value('@id', 'INT'))
-            , ISNULL(tipo.Item.value('@Nombre', 'VARCHAR(64)'), tipo.Item.value('@nombre', 'VARCHAR(64)'))
+            CASE
+                WHEN (tipo.Item.value('@Id', 'INT') IS NOT NULL) THEN tipo.Item.value('@Id', 'INT')
+                ELSE tipo.Item.value('@id', 'INT')
+            END
+            , CASE
+                WHEN (tipo.Item.value('@Nombre', 'VARCHAR(64)') IS NOT NULL) THEN tipo.Item.value('@Nombre', 'VARCHAR(64)')
+                ELSE tipo.Item.value('@nombre', 'VARCHAR(64)')
+            END
         FROM @inXml.nodes('//TipoOperacion') AS tipo(Item)
         WHERE NOT EXISTS (
             SELECT 1
             FROM dbo.TipoOperacion AS operacion
-            WHERE (operacion.Id = ISNULL(tipo.Item.value('@Id', 'INT'), tipo.Item.value('@id', 'INT')))
+            WHERE (operacion.Id = CASE
+                                      WHEN (tipo.Item.value('@Id', 'INT') IS NOT NULL) THEN tipo.Item.value('@Id', 'INT')
+                                      ELSE tipo.Item.value('@id', 'INT')
+                                  END)
         );
 
         -- 6. Tipo Movimiento
@@ -135,7 +166,10 @@ BEGIN
             tipo.Item.value('@Id', 'INT')
             , tipo.Item.value('@Nombre', 'VARCHAR(64)')
             , CASE WHEN (tipo.Item.value('@Accion', 'VARCHAR(16)') = 'Credito') THEN 1 ELSE 0 END
-            , ISNULL(tipo.Item.value('@flagGeneraComprobante', 'BIT'), 0)
+            , CASE
+                  WHEN (tipo.Item.value('@flagGeneraComprobante', 'BIT') IS NOT NULL) THEN tipo.Item.value('@flagGeneraComprobante', 'BIT')
+                  ELSE 0
+              END
             , CASE WHEN (tipo.Item.value('@Id', 'INT') IN (2, 4)) THEN 1 ELSE 0 END
             , CASE WHEN (tipo.Item.value('@Id', 'INT') IN (1, 5)) THEN 1 ELSE 0 END
             , CASE WHEN (tipo.Item.value('@Id', 'INT') IN (8, 9)) THEN 1 ELSE 0 END

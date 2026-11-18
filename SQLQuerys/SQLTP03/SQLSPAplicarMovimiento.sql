@@ -25,7 +25,7 @@ BEGIN
     SET NOCOUNT ON;
 
     BEGIN TRY
-        SET @outResultCode = 0
+        SET @outResultCode = 0;
 
         DECLARE @IdCuenta INT
             , @SaldoActual DECIMAL(18,2)
@@ -59,10 +59,10 @@ BEGIN
             , @FechaAcumuladoSinpe = C.FechaAcumuladosSinpe
             , @MontoMaxSinpeDiario = T.MontoMaxSinpeDiario
             , @ComisionSinpe = T.ComisionSinpe
-        FROM dbo.Cuenta C
-        INNER JOIN dbo.TipoCuentaAhorro T
-            ON C.IdTipoCuentaAhorro = T.Id
-        WHERE C.NumeroCuenta = @inNumeroCuenta;
+        FROM dbo.Cuenta AS C
+        INNER JOIN dbo.TipoCuentaAhorro AS T
+            ON (C.IdTipoCuentaAhorro = T.Id)
+        WHERE (C.NumeroCuenta = @inNumeroCuenta);
 
         IF (@IdCuenta IS NULL)
         BEGIN
@@ -76,8 +76,8 @@ BEGIN
             , @flagEsATM = TM.flagEsATM
             , @flagEsCajeroHumano = TM.flagEsCajeroHumano
             , @flagEsSinpe = TM.flagEsSinpe
-        FROM dbo.TipoMovimiento TM
-        WHERE TM.Nombre = @inNombreTipoMovimiento;
+        FROM dbo.TipoMovimiento AS TM
+        WHERE (TM.Nombre = @inNombreTipoMovimiento);
 
         IF (@IdTipoMovimiento IS NULL)
         BEGIN
@@ -86,7 +86,7 @@ BEGIN
         END;
 
         SELECT @IdEstadoCuenta = E.Id
-        FROM dbo.EstadoCuenta E
+        FROM dbo.EstadoCuenta AS E
         WHERE (E.IdCuenta = @IdCuenta)
             AND (E.FechaInicio <= @inFechaOperacion)
             AND (E.FechaFin >= @inFechaOperacion);
@@ -140,7 +140,7 @@ BEGIN
         -- Comprobar que no se ensucio
         IF EXISTS (
             SELECT 1
-            FROM dbo.Cuenta C
+            FROM dbo.Cuenta AS C
             WHERE (C.Id = @IdCuenta)
                 AND (C.Saldo <> @SaldoActual)
         )
@@ -211,7 +211,7 @@ BEGIN
                 , CantOperacionesCajeroHumano = CantOperacionesCajeroHumano + @flagEsCajeroHumano
                 , CantTransferenciasEntrantes = CantTransferenciasEntrantes + @flagEsSinpeEntrante
                 , CantTransferenciasSalientes = CantTransferenciasSalientes + @flagEsSinpeSaliente
-            WHERE Id = @IdEstadoCuenta;
+            WHERE (Id = @IdEstadoCuenta);
 
             UPDATE dbo.EventLog WITH (ROWLOCK)
             SET UltimoIdProcesado = @inSecuenciaMov
@@ -224,7 +224,7 @@ BEGIN
             SET Saldo = @SaldoFinal
                 , AcumuladosSinpe = @NuevoAcumuladoSinpe
                 , FechaAcumuladosSinpe = @NuevaFechaAcumuladoSinpe
-            WHERE Id = @IdCuenta;
+            WHERE (Id = @IdCuenta);
 
         COMMIT TRANSACTION tAplicaMovimiento;
 

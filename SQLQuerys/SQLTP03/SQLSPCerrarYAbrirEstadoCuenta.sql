@@ -80,12 +80,12 @@ BEGIN
             , @NumRetirosAutomatico = T.NumRetirosAutomatico
             , @ComisionHumano = T.ComisionHumano
             , @ComisionAutomatico = T.ComisionAutomatico
-        FROM dbo.EstadoCuenta E
-        INNER JOIN dbo.Cuenta C
-            ON C.Id = E.IdCuenta
-        INNER JOIN dbo.TipoCuentaAhorro T
-            ON T.Id = C.IdTipoCuentaAhorro
-        WHERE E.Id = @inIdEstadoCuenta;
+        FROM dbo.EstadoCuenta AS E
+        INNER JOIN dbo.Cuenta AS C
+            ON (C.Id = E.IdCuenta)
+        INNER JOIN dbo.TipoCuentaAhorro AS T
+            ON (T.Id = C.IdTipoCuentaAhorro)
+        WHERE (E.Id = @inIdEstadoCuenta);
 
         IF (@IdCuenta IS NULL)
         BEGIN
@@ -101,7 +101,7 @@ BEGIN
 
         IF EXISTS (
             SELECT 1
-            FROM dbo.EstadoCuenta E
+            FROM dbo.EstadoCuenta AS E
             WHERE (E.IdCuenta = @IdCuenta)
                 AND (E.FechaInicio > @FechaFinEstado)
         )
@@ -160,7 +160,7 @@ BEGIN
         --Comprobar que no se ensucio
         IF EXISTS (
             SELECT 1
-            FROM dbo.Cuenta C
+            FROM dbo.Cuenta AS C
             WHERE (C.Id = @IdCuenta)
                 AND (C.Saldo <> @SaldoCuenta)
         )
@@ -190,14 +190,14 @@ BEGIN
                 , M.Monto
                 , M.Descripcion
                 , M.NuevoSaldo
-            FROM @MovimientosCierre M
+            FROM @MovimientosCierre AS M
             WHERE (M.Monto > 0)
             ORDER BY M.Sec;
 
             -- Cerrar estado de cuenta
             UPDATE dbo.EstadoCuenta
             SET SaldoFinal = @SaldoCierre
-            WHERE Id = @inIdEstadoCuenta;
+            WHERE (Id = @inIdEstadoCuenta);
 
             --Esstado de cuenta siguiente
             INSERT dbo.EstadoCuenta (
@@ -227,11 +227,11 @@ BEGIN
             UPDATE dbo.EventLog WITH (ROWLOCK)
             SET UltimoIdProcesado = @inIdEstadoCuenta
                 , CantIdsProcesados = CantIdsProcesados + 1
-            WHERE Id = @inIdEventLog;
+            WHERE (Id = @inIdEventLog);
 
             UPDATE dbo.Cuenta WITH (ROWLOCK) --saldo actualizado de ultimo
             SET Saldo = @SaldoCierre
-            WHERE Id = @IdCuenta;
+            WHERE (Id = @IdCuenta);
 
         COMMIT TRANSACTION tCierraYAbreEstado;
 

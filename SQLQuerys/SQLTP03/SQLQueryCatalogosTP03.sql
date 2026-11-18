@@ -1,4 +1,4 @@
-USE TareaAhorros
+USE TareaAhorros;
 --catalogo lo cual implica sin IDENTITY llega por el XML
 CREATE TABLE dbo.TipoMovimiento (
     Id INT NOT NULL

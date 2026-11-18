@@ -1,5 +1,7 @@
+USE TareaAhorros;
+GO
 
-CREATE TRIGGER dbo.TrAbrirPrimerEstadoCuenta
+CREATE OR ALTER TRIGGER dbo.TrAbrirPrimerEstadoCuenta
 ON dbo.Cuenta
 AFTER INSERT
 AS
@@ -28,8 +30,7 @@ BEGIN
         , 0
         , 0
         , 0
-    FROM inserted I
-    ORDER BY I.Id;
+    FROM inserted AS I;
 
     SET NOCOUNT OFF;
 END;

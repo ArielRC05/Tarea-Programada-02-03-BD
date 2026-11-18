@@ -1,4 +1,4 @@
-USE TareaAhorros
+USE TareaAhorros;
 --Estas no son tablas catalogo por lo que si cuentan con IDENTITY
 
 CREATE TABLE dbo.Persona (

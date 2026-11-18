@@ -29,8 +29,10 @@ BEGIN
         DECLARE @ultimoIdProcesado INT;
         DECLARE @cantMovimientosDia INT;
 
+        DECLARE @minMov INT;
         DECLARE @idxMov INT;
         DECLARE @maxMov INT;
+        DECLARE @secuenciaDia INT;
         DECLARE @numeroCuenta VARCHAR(32);
         DECLARE @nombreTipoMov VARCHAR(64);
         DECLARE @monto DECIMAL(18,2);
@@ -178,16 +180,22 @@ BEGIN
                                              ELSE @currentEventLogId
                                          END;
 
-                SET @idxMov = @ultimoIdProcesado + 1;
-
                 SELECT
-                    @maxMov = MAX(mov.Secuencia)
+                    @minMov = MIN(mov.Secuencia)
+                    , @maxMov = MAX(mov.Secuencia)
                 FROM @MovimientosDelDia AS mov;
+
+                SET @idxMov = CASE
+                                  WHEN (@minMov IS NOT NULL) THEN @minMov + @ultimoIdProcesado
+                                  ELSE NULL
+                              END;
 
                 WHILE (@idxMov IS NOT NULL)
                     AND (@maxMov IS NOT NULL)
                     AND (@idxMov <= @maxMov)
                 BEGIN
+                    SET @secuenciaDia = (@idxMov - @minMov) + 1;
+
                     SELECT
                         @numeroCuenta = mov.NumeroCuenta
                         , @nombreTipoMov = mov.NombreTipoMovimiento
@@ -203,7 +211,7 @@ BEGIN
                         , @inMonto = @monto
                         , @inDescripcion = @descripcion
                         , @inIdEventLog = @currentEventLogId
-                        , @inSecuenciaMov = @idxMov
+                        , @inSecuenciaMov = @secuenciaDia
                         , @outResultCode = @codigoSP OUTPUT;
 
                     IF (@codigoSP <> 0)

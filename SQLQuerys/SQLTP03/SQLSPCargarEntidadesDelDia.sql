@@ -16,19 +16,20 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    DECLARE @CuentasNuevas TABLE (
-        Secuencia INT IDENTITY(1,1) PRIMARY KEY
-        , IdCAhorrista INT
-        , IdTipoCuentaAhorro INT
-        , NumeroCuenta VARCHAR(32)
-        , FechaCreacion DATE
-        , Saldo DECIMAL(18,2)
-    );
-
-    DECLARE @idx INT;
-    DECLARE @maxIdx INT;
-
     BEGIN TRY
+        DECLARE @CuentasNuevas TABLE (
+            Secuencia INT IDENTITY(1,1) PRIMARY KEY
+            , IdCAhorrista INT
+            , IdTipoCuentaAhorro INT
+            , NumeroCuenta VARCHAR(32)
+            , FechaCreacion DATE
+            , Saldo DECIMAL(18,2)
+        );
+
+        DECLARE @idx INT;
+        DECLARE @maxIdx INT;
+        DECLARE @flagEnTransaccion BIT = 0;
+
         SET @outResultCode = 0;
 
         IF (@inXmlDia IS NULL)
@@ -127,8 +128,15 @@ BEGIN
             p.Id
             , cta.Item.value('@TipoCuentaId', 'INT')
             , cta.Item.value('@NumeroCuenta', 'VARCHAR(32)')
-            , ISNULL(@inFechaOperacion, ISNULL(cta.Item.value('@FechaCreacion', 'DATE'), CONVERT(DATE, GETDATE())))
-            , ISNULL(cta.Item.value('@Saldo', 'DECIMAL(18,2)'), 0.00)
+            , CASE
+                  WHEN (@inFechaOperacion IS NOT NULL) THEN @inFechaOperacion
+                  WHEN (cta.Item.value('@FechaCreacion', 'DATE') IS NOT NULL) THEN cta.Item.value('@FechaCreacion', 'DATE')
+                  ELSE CONVERT(DATE, GETDATE())
+              END
+            , CASE
+                  WHEN (cta.Item.value('@Saldo', 'DECIMAL(18,2)') IS NOT NULL) THEN cta.Item.value('@Saldo', 'DECIMAL(18,2)')
+                  ELSE 0.00
+              END
         FROM @inXmlDia.nodes('//Cuenta') AS cta(Item)
         INNER JOIN dbo.Persona AS p
             ON (p.ValorDocumentoIdentidad = cta.Item.value('@ValorDocumentoIdentidadDelCliente', 'VARCHAR(32)'))
@@ -143,7 +151,8 @@ BEGIN
             , @maxIdx = MAX(cn.Secuencia)
         FROM @CuentasNuevas AS cn;
 
-        WHILE (@idx IS NOT NULL AND @idx <= @maxIdx)
+        WHILE (@idx IS NOT NULL)
+            AND (@idx <= @maxIdx)
         BEGIN
             INSERT dbo.Cuenta (
                 IdCAhorrista
