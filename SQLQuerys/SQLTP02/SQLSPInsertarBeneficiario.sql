@@ -1,3 +1,5 @@
+USE TareaAhorros;
+GO
 
 --insertar beneficiario a una cuenta
 
@@ -18,7 +20,7 @@
 --     , @inIP = '111.222.0.10'
 --     , @outResultCode = @resultCode OUTPUT;
 
-CREATE PROCEDURE dbo.InsertarBeneficiario
+CREATE OR ALTER PROCEDURE dbo.InsertarBeneficiario
     @inIdUsuario INT
     , @inNumeroCuenta VARCHAR(32)
     , @inIdTipoDocuIdentidad INT
@@ -40,19 +42,30 @@ BEGIN
         DECLARE @idCuenta INT;
         DECLARE @idPersona INT;
         DECLARE @cantActivos INT;
+        DECLARE @flagEsAdministrador BIT = 0;
         DECLARE @flagPersonaExiste BIT = 0;
         DECLARE @flagParentescoExiste BIT = 0;
         DECLARE @flagTipoDocExiste BIT = 0;
         DECLARE @flagYaEsBeneficiario BIT = 0;
         DECLARE @jsonDespues NVARCHAR(MAX);
-        SET @outResultCode = 0; 
+        SET @outResultCode = 0;
 
-        SELECT @idCuenta = cuenta.Id --que el usuario pueda ver esa cuenta
-        FROM dbo.UsuarioPuedeVer puedeVer
-        INNER JOIN dbo.Cuenta cuenta
-            ON cuenta.Id = puedeVer.IdCuenta
-        WHERE puedeVer.IdUsuario = @inIdUsuario
-            AND cuenta.NumeroCuenta = @inNumeroCuenta;
+        SELECT @flagEsAdministrador = u.flagEsAdministrador
+        FROM dbo.Usuario AS u
+        WHERE (u.Id = @inIdUsuario);
+
+        SELECT @idCuenta = cuenta.Id --que el usuario pueda ver esa cuenta o sea administrador
+        FROM dbo.Cuenta AS cuenta
+        WHERE (cuenta.NumeroCuenta = @inNumeroCuenta)
+            AND (
+                (@flagEsAdministrador = 1)
+                OR EXISTS (
+                    SELECT 1
+                    FROM dbo.UsuarioPuedeVer AS puedeVer
+                    WHERE (puedeVer.IdUsuario = @inIdUsuario)
+                        AND (puedeVer.IdCuenta = cuenta.Id)
+                )
+            );
 
         SELECT @idPersona = persona.Id --comprobar el id
         FROM dbo.Persona persona
@@ -205,8 +218,10 @@ BEGIN
     END TRY
 
     BEGIN CATCH
-
-        ROLLBACK TRANSACTION;
+        IF (@@TRANCOUNT > 0)
+        BEGIN
+            ROLLBACK TRANSACTION;
+        END;
 
         INSERT dbo.DBErrors ( --guardar el error en DBErrores 
             NumeroError
@@ -225,4 +240,7 @@ BEGIN
 
         SET @outResultCode = 50001; --50001 es error de plataforma
     END CATCH;
+
+    SET NOCOUNT OFF;
 END;
+GO

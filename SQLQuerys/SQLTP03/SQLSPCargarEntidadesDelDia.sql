@@ -117,7 +117,7 @@ BEGIN
             );
 
         -- 4. Preparar e insertar Cuentas del dia (dispara el Trigger de apertura de EstadoCuenta)
-        INSERT INTO @CuentasNuevas (
+        INSERT @CuentasNuevas (
             IdCAhorrista
             , IdTipoCuentaAhorro
             , NumeroCuenta
@@ -292,5 +292,7 @@ BEGIN
 
         SET @outResultCode = 50005;
     END CATCH;
+
+    SET NOCOUNT OFF;
 END;
 GO

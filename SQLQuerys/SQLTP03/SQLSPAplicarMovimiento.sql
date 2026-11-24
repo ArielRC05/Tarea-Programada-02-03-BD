@@ -1,4 +1,4 @@
-USE TareaAhorros
+USE TareaAhorros;
 GO
 --Ejemplo de ejecucion:
 --DECLARE @r INT;

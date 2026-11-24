@@ -142,7 +142,7 @@ BEGIN
                         RETURN;
                     END;
 
-                    INSERT INTO @MovimientosDelDia (
+                    INSERT @MovimientosDelDia (
                         NumeroCuenta
                         , NombreTipoMovimiento
                         , Monto
@@ -267,5 +267,7 @@ BEGIN
 
         SET @outResultCode = 50005;
     END CATCH;
+
+    SET NOCOUNT OFF;
 END;
 GO

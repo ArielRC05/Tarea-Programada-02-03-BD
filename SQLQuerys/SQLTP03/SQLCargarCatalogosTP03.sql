@@ -184,7 +184,7 @@ BEGIN
         SET @flagEnTransaccion = 0;
     END TRY
     BEGIN CATCH
-        IF (@flagEnTransaccion =1)
+        IF (@flagEnTransaccion = 1)
         BEGIN
             ROLLBACK TRANSACTION;
         END;
@@ -207,5 +207,7 @@ BEGIN
 
         SET @outResultCode = 50005;
     END CATCH;
+
+    SET NOCOUNT OFF;
 END;
 GO

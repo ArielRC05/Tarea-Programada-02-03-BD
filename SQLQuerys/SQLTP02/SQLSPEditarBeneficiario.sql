@@ -1,3 +1,5 @@
+USE TareaAhorros;
+GO
 
 --editar beneficiario (nombre, parentesco o porcentaje de un benef activo)
 --Ejemplo de ejecucion
@@ -12,7 +14,7 @@
 --     , @inIP = '111.222.0.10'
 --     , @outResultCode = @resultCode OUTPUT;
 
-CREATE PROCEDURE dbo.EditarBeneficiario
+CREATE OR ALTER PROCEDURE dbo.EditarBeneficiario
     @inIdUsuario INT
     , @inNumeroCuenta VARCHAR(32)
     , @inIdBenefDeCA INT
@@ -32,6 +34,7 @@ BEGIN
         DECLARE @idParentescoAntes INT;
         DECLARE @porcentajeAntes INT;
         DECLARE @idTipoOperacion INT;
+        DECLARE @flagEsAdministrador BIT = 0;
         DECLARE @flagParentescoExiste BIT = 0;
         DECLARE @flagSoloPorcentaje BIT = 0;
         DECLARE @jsonAntes NVARCHAR(MAX);
@@ -39,12 +42,22 @@ BEGIN
 
         SET @outResultCode = 0;
 
+        SELECT @flagEsAdministrador = u.flagEsAdministrador
+        FROM dbo.Usuario AS u
+        WHERE (u.Id = @inIdUsuario);
+
         SELECT @idCuenta = cuenta.Id ---si no se ve la cuenta queda NULL
-        FROM dbo.UsuarioPuedeVer puedeVer
-        INNER JOIN dbo.Cuenta cuenta
-            ON cuenta.Id = puedeVer.IdCuenta
-        WHERE puedeVer.IdUsuario = @inIdUsuario
-            AND cuenta.NumeroCuenta = @inNumeroCuenta;
+        FROM dbo.Cuenta AS cuenta
+        WHERE (cuenta.NumeroCuenta = @inNumeroCuenta)
+            AND (
+                (@flagEsAdministrador = 1)
+                OR EXISTS (
+                    SELECT 1
+                    FROM dbo.UsuarioPuedeVer AS puedeVer
+                    WHERE (puedeVer.IdUsuario = @inIdUsuario)
+                        AND (puedeVer.IdCuenta = cuenta.Id)
+                )
+            );
 
         SELECT @idPersona = beneficiarioCuenta.IdBeneficiario --datos actuales del beneficiario, si no encuentra NULL
             , @nombreAntes = persona.Nombre
@@ -137,8 +150,10 @@ BEGIN
     END TRY
 
     BEGIN CATCH
-        
-        ROLLBACK TRANSACTION;
+        IF (@@TRANCOUNT > 0)
+        BEGIN
+            ROLLBACK TRANSACTION;
+        END;
 
         INSERT dbo.DBErrors ( --guardar el error en DBErrores 
             NumeroError
@@ -157,4 +172,7 @@ BEGIN
 
         SET @outResultCode = 50001; --50001 es error de plataforma
     END CATCH;
+
+    SET NOCOUNT OFF;
 END;
+GO

@@ -18,14 +18,28 @@ BEGIN
 
     BEGIN TRY
         DECLARE @idCuentaValidada INT;
+        DECLARE @flagEsAdministrador BIT = 0;
 
         SET @outResultCode = 0;
 
         SELECT
-            @idCuentaValidada = puedeVer.IdCuenta
-        FROM dbo.UsuarioPuedeVer AS puedeVer
-        WHERE (puedeVer.IdUsuario = @inIdUsuario)
-            AND (puedeVer.IdCuenta = @inIdCuenta);
+            @flagEsAdministrador = u.flagEsAdministrador
+        FROM dbo.Usuario AS u
+        WHERE (u.Id = @inIdUsuario);
+
+        SELECT
+            @idCuentaValidada = c.Id
+        FROM dbo.Cuenta AS c
+        WHERE (c.Id = @inIdCuenta)
+            AND (
+                (@flagEsAdministrador = 1)
+                OR EXISTS (
+                    SELECT 1
+                    FROM dbo.UsuarioPuedeVer AS puedeVer
+                    WHERE (puedeVer.IdUsuario = @inIdUsuario)
+                        AND (puedeVer.IdCuenta = c.Id)
+                )
+            );
 
         IF (@idCuentaValidada IS NULL)
         BEGIN
@@ -72,5 +86,7 @@ BEGIN
 
         SET @outResultCode = 50005;
     END CATCH;
+
+    SET NOCOUNT OFF;
 END;
 GO

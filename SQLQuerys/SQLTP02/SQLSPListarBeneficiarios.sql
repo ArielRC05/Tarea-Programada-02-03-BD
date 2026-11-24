@@ -1,3 +1,6 @@
+USE TareaAhorros;
+GO
+
 --listar los beneficiarios de una cuenta
 --Ejemplo de ejecucion
 --DECLARE @resultCode INT;
@@ -5,7 +8,7 @@
 --     @inIdUsuario = 1
 --     , @inNumeroCuenta = '11000001'
 --     , @outResultCode = @resultCode OUTPUT;
-CREATE PROCEDURE dbo.ListarBeneficiarios
+CREATE OR ALTER PROCEDURE dbo.ListarBeneficiarios
     @inIdUsuario INT
     , @inNumeroCuenta VARCHAR(32)
     , @outResultCode INT OUTPUT -- codigo del resultado
@@ -15,16 +18,27 @@ BEGIN
 
     BEGIN TRY
         DECLARE @idCuenta INT;
+        DECLARE @flagEsAdministrador BIT = 0;
 
         SET @outResultCode = 0;
 
-        --revisar que la cuenta si la pueda ver el usuario
+        SELECT @flagEsAdministrador = u.flagEsAdministrador
+        FROM dbo.Usuario AS u
+        WHERE (u.Id = @inIdUsuario);
+
+        --revisar que la cuenta si la pueda ver el usuario o que sea administrador
         SELECT @idCuenta = cuenta.Id
-        FROM dbo.UsuarioPuedeVer puedeVer
-        INNER JOIN dbo.Cuenta cuenta
-            ON cuenta.Id = puedeVer.IdCuenta
-        WHERE puedeVer.IdUsuario = @inIdUsuario
-            AND cuenta.NumeroCuenta = @inNumeroCuenta;
+        FROM dbo.Cuenta AS cuenta
+        WHERE (cuenta.NumeroCuenta = @inNumeroCuenta)
+            AND (
+                (@flagEsAdministrador = 1)
+                OR EXISTS (
+                    SELECT 1
+                    FROM dbo.UsuarioPuedeVer AS puedeVer
+                    WHERE (puedeVer.IdUsuario = @inIdUsuario)
+                        AND (puedeVer.IdCuenta = cuenta.Id)
+                )
+            );
 
         IF (@idCuenta IS NULL)
         BEGIN
@@ -67,5 +81,7 @@ BEGIN
 
         SET @outResultCode = 50001; --50001 es error de plataforma
     END CATCH;
+
+    SET NOCOUNT OFF;
 END;
 GO

@@ -3,7 +3,7 @@ USE TareaAhorros;
 
 CREATE TABLE dbo.EventLog ( --para el control masivo
     Id INT IDENTITY(1,1) NOT NULL
-    , IdTipoEvento INT NOT NULL --1 = cierre de estados del dia
+    , IdTipoEvento INT NOT NULL --1 = cierre de estados del dia, 2 = movimientos del dia
     , FechaEvento DATE NOT NULL
     , Descripcion VARCHAR(256) NOT NULL
     , CantIdsPorProcesar INT NOT NULL DEFAULT 0

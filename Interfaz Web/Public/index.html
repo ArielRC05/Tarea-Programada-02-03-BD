@@ -31,7 +31,7 @@
     <!-- VISTA 2: DASHBOARD -->
     <div id="vista-dashboard" class="card hidden">
         <div class="card-header">
-            <span>Bienvenido al Portal</span>
+            <span id="lbl-bienvenida">Bienvenido al Portal</span>
             <button class="btn btn-secondary" onclick="cerrarSesion()">Cerrar Sesión</button>
         </div>
         <div class="card-body">
@@ -44,6 +44,10 @@
                 <div class="summary-item">
                     <span class="summary-label">Cuenta Activa</span>
                     <strong id="lbl-cuenta">-</strong>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Titular</span>
+                    <strong id="lbl-titular-cuenta">-</strong>
                 </div>
                 <div class="summary-item">
                     <span class="summary-label">Tipo de Cuenta</span>
@@ -241,6 +245,7 @@
 <script>
     const baseURL = 'http://localhost:3000/api';
     let usuarioActual = null;
+    let esAdministrador = false;
     let cuentaActual = null;          // NumeroCuenta (VARCHAR)
     let idCuentaActual = null;        // Id de Cuenta (INT)
     let simboloMonedaActual = '₡';    // Símbolo de moneda de la cuenta activa
@@ -290,6 +295,10 @@
 
             if (res.ok) {
                 usuarioActual = data.usuario.Id;
+                esAdministrador = Boolean(data.usuario.flagEsAdministrador);
+                document.getElementById('lbl-bienvenida').innerText = esAdministrador
+                    ? 'Bienvenido al Portal (Administrador)'
+                    : 'Bienvenido al Portal';
                 await cargarCuentasUsuario();
             } else {
                 alert(data.error || 'Credenciales incorrectas');
@@ -314,7 +323,9 @@
                     const simbolo = c.SimboloMoneda || '₡';
                     const opt = document.createElement('option');
                     opt.value = index;
-                    opt.textContent = `${c.NumeroCuenta} - ${c.TipoCuenta || 'Cuenta'} (${simbolo}${Number(c.Saldo).toFixed(2)})`;
+                    opt.textContent = (esAdministrador && c.NombreCliente)
+                        ? `${c.NumeroCuenta} - ${c.NombreCliente} - ${c.TipoCuenta || 'Cuenta'} (${simbolo}${Number(c.Saldo).toFixed(2)})`
+                        : `${c.NumeroCuenta} - ${c.TipoCuenta || 'Cuenta'} (${simbolo}${Number(c.Saldo).toFixed(2)})`;
                     select.appendChild(opt);
                 });
 
@@ -339,6 +350,7 @@
         simboloMonedaActual = cuenta.SimboloMoneda || '₡';
 
         document.getElementById('lbl-cuenta').innerText = cuenta.NumeroCuenta;
+        document.getElementById('lbl-titular-cuenta').innerText = cuenta.NombreCliente || '-';
         document.getElementById('lbl-tipo-cuenta').innerText = cuenta.TipoCuenta || '-';
         document.getElementById('lbl-saldo-cuenta').innerText = formatearMonto(cuenta.Saldo);
     }
@@ -358,9 +370,11 @@
         }
 
         usuarioActual = null;
+        esAdministrador = false;
         cuentaActual = null;
         idCuentaActual = null;
         cuentasUsuarioCache = [];
+        document.getElementById('lbl-bienvenida').innerText = 'Bienvenido al Portal';
         document.getElementById('login-user').value = '';
         document.getElementById('login-pass').value = '';
         mostrarVista('vista-login');

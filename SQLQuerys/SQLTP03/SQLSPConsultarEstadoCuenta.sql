@@ -20,17 +20,29 @@ BEGIN
 
     BEGIN TRY
         DECLARE @idEstadoValidado INT;
+        DECLARE @flagEsAdministrador BIT = 0;
         DECLARE @jsonDespues NVARCHAR(MAX);
 
         SET @outResultCode = 0;
 
         SELECT
+            @flagEsAdministrador = u.flagEsAdministrador
+        FROM dbo.Usuario AS u
+        WHERE (u.Id = @inIdUsuario);
+
+        SELECT
             @idEstadoValidado = ec.Id
         FROM dbo.EstadoCuenta AS ec
-        INNER JOIN dbo.UsuarioPuedeVer AS puedeVer
-            ON (puedeVer.IdCuenta = ec.IdCuenta)
         WHERE (ec.Id = @inIdEstadoCuenta)
-            AND (puedeVer.IdUsuario = @inIdUsuario);
+            AND (
+                (@flagEsAdministrador = 1)
+                OR EXISTS (
+                    SELECT 1
+                    FROM dbo.UsuarioPuedeVer AS puedeVer
+                    WHERE (puedeVer.IdUsuario = @inIdUsuario)
+                        AND (puedeVer.IdCuenta = ec.IdCuenta)
+                )
+            );
 
         IF (@idEstadoValidado IS NULL)
         BEGIN
@@ -95,5 +107,7 @@ BEGIN
 
         SET @outResultCode = 50005;
     END CATCH;
+
+    SET NOCOUNT OFF;
 END;
 GO

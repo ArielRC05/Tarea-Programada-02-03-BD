@@ -2,9 +2,12 @@
 <!-- Simulación - Tercera Tarea Programada - Bases de Datos I.
      Periodo: 2026-03-01 a 2026-06-30 (4 meses), 100 movimientos.
      Las fechas sin datos se omiten; el proceso igual debe recorrer todas las fechas.
-     Montos en la moneda de la cuenta. Los IDs refieren a CatalogosTarea3.xml. -->
+     Montos en la moneda de la cuenta. Los IDs refieren a CatalogosTarea3.xml.
+     Usuario administrador: fquiros (EsAdministrador="1"), creado el 2026-03-01. Puede ver
+     todas las cuentas, por eso no tiene nodos UsuarioPuedeVer. Los demás usuarios son clientes. -->
 <Operaciones>
   <FechaOperacion Fecha="2026-03-01">
+    <Persona TipoDocuIdentidad="1" Nombre="Franco Quiros Ramirez" ValorDocumentoIdentidad="130004000" FechaNacimiento="1994-10-13" Email="fquiros@ejemplo.com" telefono1="87541766" telefono2="24197545"/>
     <Persona TipoDocuIdentidad="1" Nombre="Ana Lucía Mora Jiménez" ValorDocumentoIdentidad="117250431" FechaNacimiento="1992-04-17" Email="ana.mora@ejemplo.com" telefono1="88123456" telefono2="22541234"/>
     <Persona TipoDocuIdentidad="1" Nombre="Carlos Andrés Vargas Solís" ValorDocumentoIdentidad="205430876" FechaNacimiento="1985-11-02" Email="carlos.vargas@ejemplo.com" telefono1="87214598" telefono2="24456712"/>
     <Persona TipoDocuIdentidad="1" Nombre="Rosa Jiménez Arias" ValorDocumentoIdentidad="109870345" FechaNacimiento="1960-02-11" Email="rosa.jimenez@ejemplo.com" telefono1="83321907" telefono2="22549087"/>
@@ -14,6 +17,7 @@
     <Cuenta ValorDocumentoIdentidadDelCliente="205430876" TipoCuentaId="2" NumeroCuenta="11000002" FechaCreacion="2026-03-01" Saldo="0.00"/>
     <Beneficiario NumeroCuenta="11000001" ValorDocumentoIdentidadBeneficiario="109870345" IdParentezco="2" Porcentaje="60"/>
     <Beneficiario NumeroCuenta="11000001" ValorDocumentoIdentidadBeneficiario="118900456" IdParentezco="5" Porcentaje="40"/>
+    <Usuario User="fquiros" Pass="MyPass123*" EsAdministrador="1" ValorDocId="130004000"/>
     <Usuario User="amora" Pass="AnaMora2026*" EsAdministrador="0" ValorDocId="117250431"/>
     <Usuario User="cvargas" Pass="Carlos2026*" EsAdministrador="0" ValorDocId="205430876"/>
     <UsuarioPuedeVer User="amora" NumeroCuenta="11000001"/>

@@ -1,4 +1,4 @@
-USE TareaAhorros
+USE TareaAhorros;
 GO
 
 --Ejemplo de ejecucion:
@@ -114,6 +114,12 @@ BEGIN
         SET @NuevaFechaInicio = DATEADD(DAY, 1, @FechaFinEstado);
         SET @NuevaFechaFin = DATEADD(MONTH, DATEDIFF(MONTH, @FechaCreacion, @FechaFinEstado) + 1, @FechaCreacion);
 
+        -- Si no hubo movimientos en el primer periodo, el saldo minimo corresponde al saldo actual
+        SET @SaldoMinimoEstado = CASE
+                                     WHEN (@SaldoMinimoEstado IS NULL) THEN @SaldoCuenta
+                                     ELSE @SaldoMinimoEstado
+                                 END;
+
         -- Montos del cierre, 0 si no aplica
         SET @MontoIntereses = CASE
                                 WHEN (@SaldoMinimoEstado > 0) THEN (@SaldoMinimoEstado * @TasaInteresAnual / 100) / 12
@@ -197,9 +203,10 @@ BEGIN
             -- Cerrar estado de cuenta
             UPDATE dbo.EstadoCuenta
             SET SaldoFinal = @SaldoCierre
+                , SaldoMinimo = @SaldoMinimoEstado
             WHERE (Id = @inIdEstadoCuenta);
 
-            --Esstado de cuenta siguiente
+            --Estado de cuenta siguiente
             INSERT dbo.EstadoCuenta (
                 IdCuenta
                 , FechaInicio

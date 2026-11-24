@@ -1,25 +1,24 @@
 {
   "name": "tarea-programada-02-bd",
   "version": "1.0.0",
-  "description": "Tarea programada 02 de base de datos por Kendall Rojas y Daniel Zumbado.",
-  "main": "index.js",
+  "description": "Tareas programadas 02 y 03 de bases de datos por Kendall Rojas y Daniel Zumbado.",
+  "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ArielRC05/Tarea-Programada-02-BD.git"
+    "url": "git+https://github.com/ArielRC05/Tarea-Programada-02-03-BD.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/ArielRC05/Tarea-Programada-02-BD/issues"
+    "url": "https://github.com/ArielRC05/Tarea-Programada-02-03-BD/issues"
   },
-  "homepage": "https://github.com/ArielRC05/Tarea-Programada-02-BD#readme",
+  "homepage": "https://github.com/ArielRC05/Tarea-Programada-02-03-BD#readme",
   "dependencies": {
-    "body-parser": "^2.3.0",
     "cors": "^2.8.6",
     "express": "^5.3.0",
     "mssql": "^12.7.4"
